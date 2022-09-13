@@ -1,4 +1,3 @@
-from typing import Final
 import numpy as np
 from O3_symbolic import InnerProduct, Term
 
@@ -98,9 +97,9 @@ def NextOrderGP(CurrentOrderGPList):
             IP.set_index_type("y")
 
         # Create new IP/Term that has shift in new direction
-        S = InnerProduct(bra=[False], ket=[False], index_type="y", scalar=1.0/2.0)
+        S = InnerProduct(bra=[0], ket=[0], index_type="y", scalar=1.0/2.0)
         S.extendToLength(len(Tcp.IPList[0].bra))
-        S.ket[-1] = True
+        S.ket[-1] = 1
         newTerm = Term([S.copy()])
 
         nextGPTerms = GradiantProduct(Tcp, newTerm, doPrint=False)
@@ -176,7 +175,7 @@ def doNextOrder(prevOrder):
 
 if __name__ == "__main__":
     #'''
-    ip1 = InnerProduct([False], [True], scalar=1.0/8.0) # 0th order Solution (as it is unique and easy to do)
+    ip1 = InnerProduct([0], [1], scalar=1.0/8.0) # 0th order Solution (as it is unique and easy to do)
     t1 = Term([ip1])
     FinalResult = [[t1]]
     print("Order 0:\n\t", t1, "\n")
@@ -184,7 +183,7 @@ if __name__ == "__main__":
         result = doNextOrder(FinalResult[-1])
         print("Order {}:".format(order))
         for term in result:
-            print("\t", term)
+            print("\t", term, term.Val)
         print("\n")
         FinalResult.append(result)
 
