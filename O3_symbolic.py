@@ -416,7 +416,7 @@ class Term(object):
 
     def getValue(self, lattice=None):
         if type(lattice) == type(None):
-            length = 6 #(len(self.IPList[0].bra) + 1)
+            length = 10 #(len(self.IPList[0].bra) + 1)
             lattice = np.empty((length*length,3))
             np.random.seed(222)
             for i in range(length*length):

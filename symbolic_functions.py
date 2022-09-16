@@ -169,17 +169,13 @@ def doNextOrder(prevOrder):
 
     return result
 
-            
-
-
 
 if __name__ == "__main__":
-    #'''
     ip1 = InnerProduct([0], [1], scalar=1.0/8.0) # 0th order Solution (as it is unique and easy to do)
     t1 = Term([ip1])
     FinalResult = [[t1]]
     print("Order 0:\n\t", t1, "\n")
-    for order in range(1,5):
+    for order in range(1,6):
         result = doNextOrder(FinalResult[-1])
         print("Order {}:".format(order))
         for term in result:
@@ -187,34 +183,7 @@ if __name__ == "__main__":
         print("\n")
         FinalResult.append(result)
 
-    #'''
-    '''
-    ip1 = InnerProduct([False, False, False], [True, False, False])
-    ip2 = InnerProduct([False, False, False], [False, True, False])
-    ip3 = InnerProduct([False, False, False], [False, False, True])
-    t1 = Term([ip1,ip2,ip3])
-    gp = NextOrderGP([t1])
-    t = gp[-1]
-    t.IPList[0].scalar = 1.0
-    t.set_index_type("y")
     
-    print(t)
-    print("\n\n\n")
-
-    dT = t.partial("x")[2]
-    print(dT)
-    print("\n\n\n")
-
-    out = []
-    ddT = dT.partial("x")
-    for lt in ddT:
-        lt.muReduce()
-        out.append(lt)
-        out = ReduceTermList(out)
-
-    for lt in out:
-        print(lt)
-    '''
 
 
 
