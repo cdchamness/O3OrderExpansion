@@ -26,45 +26,49 @@ class InnerProduct(object):
         else:
             myStr += '<' + self.index_type
         for i in self.bra:
-            if i == True:
-                myStr += "+"
-            elif i == False:
-                myStr += "_"
+            myStr += ","
+            if i == 0:
+                myStr += "__"
             else:
-                myStr += "#" # This should never appear, implemented for Debugging
+                if i > 0:
+                    myStr += "+"
+                myStr += str(i)
         myStr += "|" + self.inside
         if len(self.inside) != 0:
             myStr += "|"
         myStr += self.index_type   
         for i in self.ket:
-            if i == True:
-                myStr += "+"
-            elif i == False:
-                myStr += "_"
+            myStr += ","
+            if i == 0:
+                myStr += "__"
             else:
-                myStr += "#" # This should never appear, implemented for Debugging
+                if i > 0:
+                    myStr += "+"
+                myStr += str(i)
         myStr += ">"
         if self.xKdelta != []:
-            myStr += "d{" + self.partialIndexType + "," + self.index_type
+            myStr += "d{" + self.partialIndexType + ";" + self.index_type
             if self.xKdelta != [False] * len(self.xKdelta):
                 for i in self.xKdelta:
-                    if i == True:
-                        myStr += "+"
-                    elif i == False:
-                        myStr+= "_"
+                    myStr += ","
+                    if i == 0:
+                        myStr += "__"
                     else:
-                        myStr += "#"
+                        if i > 0:
+                            myStr += "+"
+                        myStr += str(i)
             myStr += "}"
         if self.muKdeltas != []:
-            myStr += "d{" + self.index_type + "," + self.index_type
             for muKdelta in self.muKdeltas:
+                myStr += "d{" + self.index_type + ";" + self.index_type
                 for i in muKdelta:
-                    if i == True:
-                        myStr += "+"
-                    elif i == False:
-                        myStr += "_"
+                    myStr += ","
+                    if i == 0:
+                        myStr += "__"
                     else:
-                        myStr += "#"
+                        if i > 0:
+                            myStr += "+"
+                        myStr += str(i)
                 myStr += "}"
         return myStr
 
@@ -154,50 +158,42 @@ class InnerProduct(object):
         cp = self.copy()
         if cp.bra == cp.ket:
             return []
+
         if partialIndexType != cp.index_type:
             IP1 = InnerProduct(bra=cp.bra, ket=cp.ket, index_type=cp.index_type, inside=cp.inside + "T", scalar = -cp.scalar, xKdelta=cp.bra, partialIndexType=partialIndexType, muKdeltas=cp.muKdeltas)
             IP2 = InnerProduct(bra=cp.bra, ket=cp.ket, index_type=cp.index_type, inside=cp.inside + "T", scalar = cp.scalar, xKdelta=cp.ket, partialIndexType=partialIndexType, muKdeltas=cp.muKdeltas)
             return [IP1, IP2]
+
         elif partialIndexType == cp.index_type:
             d_IPs= []
-            bra_shift_count = cp.bra.count(True)
-            ket_shift_count = cp.ket.count(True)
 
+            # apply the partial on the bra
+            bra_shifts = self.getShifts(cp.bra)
+            bra_shift_count = len(bra_shifts)
+            
             if bra_shift_count == 0:
                 # This is the derivative hitting the same place again, which is non-zero, but creates no muKdeltas
                 d_IPs.append(InnerProduct(bra=cp.bra, ket=cp.ket, index_type=cp.index_type, inside=cp.inside + "T", scalar = -cp.scalar, partialIndexType=""))
 
-            if bra_shift_count % 2  == 0 and bra_shift_count > 0:
-                # Find indicies which are True and Generate all possible pairs of those indicies
-                pairings = self.getPairs([i for i in range(len(cp.bra)) if cp.bra[i]])
-                pairings_factor = 1.0/float(len(pairings))
-
-                # Create a single muKdeltas element (which potentially has multiple muKdeltas) for each pairing
-                for pairing in pairings:
-                    new_muKdeltas = []
-                    for pair in pairing:
-                        new_muKdeltas.append([index in pair for index in range(len(cp.bra))])
-                    
+            elif bra_shift_count % 2  == 0:
+                AllmuKdeltas = self.getAllmuKdeltas(cp.bra)
+                for next_muKdeltas in AllmuKdeltas:                    
                     # make a new IP for each possible pairing
-                    d_IPs.append(InnerProduct(bra=cp.bra, ket=cp.ket, index_type=cp.index_type, inside=cp.inside + "T", scalar = -pairings_factor * cp.scalar, partialIndexType="", muKdeltas=new_muKdeltas))
+                    d_IPs.append(InnerProduct(bra=cp.bra, ket=cp.ket, index_type=cp.index_type, inside=cp.inside + "T", scalar = -len(AllmuKdeltas) * cp.scalar, partialIndexType="", muKdeltas=next_muKdeltas))
+
+            # Finished the partial on bra, now do the same for the kets
+            ket_shifts = self.getShifts(cp.ket)
+            ket_shift_count = len(ket_shifts)
 
             if ket_shift_count == 0:
                 # Same as bra_shift_count == 0, but you dont get the extra minus sign
                  d_IPs.append(InnerProduct(bra=cp.bra, ket=cp.ket, index_type=cp.index_type, inside=cp.inside + "T", scalar = cp.scalar, partialIndexType=""))
 
-            if ket_shift_count % 2 == 0 and ket_shift_count > 0:
-                # Find indicies which are True and Generate all possible pairs of those indicies
-                pairings = self.getPairs([i for i in range(len(cp.ket)) if cp.ket[i]])
-                pairings_factor = 1.0/float(len(pairings))
-
-                # Create a single muKdeltas element (which potentially has multiple muKdeltas) for each pairing
-                for pairing in pairings:
-                    new_muKdeltas = []
-                    for pair in pairing:
-                        new_muKdeltas.append([index in pair for index in range(len(cp.ket))])
-                    
+            elif ket_shift_count % 2 == 0:
+                AllmuKdeltas = self.getAllmuKdeltas(cp.ket)
+                for next_muKdeltas in AllmuKdeltas:
                     # make a new IP for each possible pairing
-                    d_IPs.append(InnerProduct(bra=cp.bra, ket=cp.ket, index_type=cp.index_type, inside=cp.inside + "T", scalar = pairings_factor * cp.scalar, partialIndexType="", muKdeltas=new_muKdeltas))
+                    d_IPs.append(InnerProduct(bra=cp.bra, ket=cp.ket, index_type=cp.index_type, inside=cp.inside + "T", scalar = len(AllmuKdeltas) * cp.scalar, partialIndexType="", muKdeltas=next_muKdeltas))
             return d_IPs
 
     def doubleFactorial(self, num: int) -> int:
@@ -206,25 +202,82 @@ class InnerProduct(object):
         else:
             return num * self.doubleFactorial(num-2)
 
-    def getPairs(self, evenList: list):
-        if len(evenList) % 2 == 1:
-            raise TypeError("Input must have an even Number of elements (min: 2). This list has {} elements".format(len(evenList)))
-        
-        if len(evenList) > 16:
-            raise TypeError("Input list is too large, please use a smaller list for the sake of memory usage. Max size = 16. This list has {} elements".format(len(evenList)))
+    def getPairings(self, index_list):
+        list_len = len(index_list)
+        if list_len % 2 != 0:
+            print("`index_list` must be even, argument given: {} has {} elements".format(index_list, list_len))
+            return None
 
-
-        if len(evenList) == 2:
-            return [[(evenList[0], evenList[1])]]
+        if list_len == 2:
+            return frozenset({index_list[0], index_list[1]})
 
         out = []
-        frozen = evenList[0]
-        for i in range(1, len(evenList)):
-            this_pair = (frozen, evenList[i])
-            those_pairs = self.getPairs(evenList[1:i] + evenList[i+1:])
-            for that_pair in those_pairs:
-                out.append([this_pair] + that_pair)
+        for i in range(1, list_len):
+            pair = frozenset({index_list[0], index_list[i]})
+            other_pairs = self.getPairings(index_list[1:i] + index_list[i+1:])
+            if isinstance(other_pairs, frozenset):
+                new_set = {pair, other_pairs}
+                if new_set not in out:
+                    out.append(new_set)
+                
+            else:
+                for partial_pairing in other_pairs:
+                    new_set = set()
+                    new_set.add(pair)
+                    for frozen_pair in partial_pairing:
+                        new_set.add(frozen_pair)
+                    if new_set not in out:
+                        out.append(new_set)
+        
+        num = 0
+        while num < len(out):
+            remove_this_set = False
+            pairing = out[num]
+            for a_set in pairing:
+                if len(a_set) == 1:
+                    remove_this_set = True
+
+            if remove_this_set:
+                out.remove(pairing)
+            else:
+                num += 1
+
         return out
+
+    def getShifts(self, l: list):
+        out = []
+        for index, value in enumerate(l):
+            v = abs(value)
+            while v > 0:
+                out.append(index)
+                v -= 1
+        return out
+
+    def getAllmuKdeltas(self, state: list):
+        AllmuKdeltas = []
+        shifts = self.getShifts(state)
+        pairings = self.getPairings(shifts)
+        
+        if isinstance(pairings, list):
+            for pairing in pairings:
+                muKdeltas = []
+                for pair in pairing:
+                    muKdelta = [0] * len(state)
+                    for val in pair:
+                        muKdelta[val] = 1 if state[val] > 0 else -1 
+                    muKdeltas.append(muKdelta)
+                AllmuKdeltas.append(muKdeltas)
+        
+        elif isinstance(pairings, frozenset):
+            muKdelta = [0] * len(state)
+            for val in pairings:
+                muKdelta[val] = 1 if state[val] > 0 else -1
+            AllmuKdeltas.append([muKdelta])
+        
+        else:
+            raise TypeError("This should be unreachable")
+        
+        return AllmuKdeltas
 
 
 class Term(object):
@@ -260,9 +313,6 @@ class Term(object):
         for ip in self.IPList:
             ip.set_index_type(newIndexType)
 
-    def remove_singles(self):
-        pass
-
     def simple_reduce(self): 
         # Extend IPs with lower bra_ket lengths so that all have the same length
         max_len = max([len(ip.bra) for ip in self.IPList])
@@ -285,8 +335,8 @@ class Term(object):
             raise TypeError("Multiple runs of xKdelta!! count: {}".format(count))
         if count == 1: # Only update InnerProducts if we encounter an xKdelta
             for ip2 in self.IPList:
-                ip2.bra = [x ^ y for x, y in zip(ip2.bra, shift)]
-                ip2.ket = [x ^ y for x, y in zip(ip2.ket, shift)]  
+                ip2.bra = [x - y for x, y in zip(ip2.bra, shift)]
+                ip2.ket = [x - y for x, y in zip(ip2.ket, shift)]  
                 ip2.set_index_type(newIndex)
                 ip2.partialIndexType = ''
                 ip2.xKdelta =[]
@@ -300,15 +350,15 @@ class Term(object):
         collapse_index_list = []
         for ip in self.IPList:
             while len(ip.muKdeltas) > 0:
-                muKdelta = ip.muKdeltas.pop()
+                pop_muKdelta = ip.muKdeltas.pop()
                 # As the muKdelta should have no overlap in indicies it is fine to do these all here and Collapse the sums after
-                final_index = len(muKdelta) - muKdelta[::-1].index(True) - 1
+                final_index = [index for index, item in enumerate(pop_muKdelta) if item != 0][-1] #len(muKdelta) - muKdelta[::-1].index(True) - 1
                 collapse_index_list.append(final_index)
                 for ip2 in self.IPList:
-                    if ip2.bra[final_index]:
-                        ip2.bra = [x ^ y for x, y in zip(ip2.bra, muKdelta)]
-                    if ip2.ket[final_index]:
-                        ip2.ket = [x ^ y for x, y in zip(ip2.ket, muKdelta)]
+                    if ip2.bra[final_index] == pop_muKdelta[final_index]:
+                        ip2.bra = [x - y for x, y in zip(ip2.bra, pop_muKdelta)]
+                    if ip2.ket[final_index] == pop_muKdelta[final_index]:
+                        ip2.ket = [x - y for x, y in zip(ip2.ket, pop_muKdelta)]
 
         # Collapse sums over the indicies that were killed by the muKdeltas they should be all zeros anyway given our method above
         # Either they were on -> which were then turn off by the xor, or they were off and thus skipped the xor in either case they are off
@@ -366,7 +416,7 @@ class Term(object):
 
     def getValue(self, lattice=None):
         if type(lattice) == type(None):
-            length = len(self.IPList[0].bra) + 1
+            length = 10 #(len(self.IPList[0].bra) + 1)
             lattice = np.empty((length*length,3))
             np.random.seed(222)
             for i in range(length*length):
@@ -431,12 +481,12 @@ class Term(object):
                 for mu in range(steps):
                     if instruct[mu] == 0:
                         pass
-                    elif instruct[mu] == 1:
+                    elif isinstance(instruct[mu], int):
                         shifter = np.reshape(bra_ket_lats[i,:,:], (length,length,3))
-                        shifter = np.roll(shifter, axis=shift[mu][0], shift=shift[mu][1])
+                        shifter = np.roll(shifter, axis=shift[mu][0], shift=shift[mu][1]*instruct[mu])
                         bra_ket_lats[i,:,:] = np.reshape(shifter, (length*length,3))
                     else:
-                        print('Error on getting shift from instruct')
+                        print('Error on getting shift from instruct: instruct[mu] = {}'.format(instruct[mu]))
                         return None
 
             for bra_index in range(0,copies,2):
@@ -509,29 +559,4 @@ class Term(object):
     def __radd__(self, other):
         return self.__add__(other)
 
-        
 
-
-
-
-
-
-def main():
-    ip1 = InnerProduct([0,0,0,0,0], [1,1,1,1,0])
-    ip2 = InnerProduct([0,0,0,0,0], [0,1,1,0,1])
-    print(ip1)
-
-    T1 = Term([ip1,ip2])
-    print(T1)
-
-    dT1 = T1.partial("x")[0]
-    print(dT1)
-
-    ddT1 = dT1.partial("x")
-    print(ddT1)
-
-
-
-
-if __name__ == "__main__":
-    main()
