@@ -541,8 +541,16 @@ class Term(object):
     def __add__(self, other): 
         cp = self.copy()
         if isinstance(other, Term):
-            if np.abs(np.sum(cp.Val - other.Val)) < 1e-10:
+            diff = np.abs(cp.Val - other.Val)
+            have_same_val = np.less_equal(diff,1e-12)
+            if have_same_val.all():
                 cp.IPList[0].scalar += other.IPList[0].scalar
+                return [Term(list(cp.IPList))]
+            sum = np.abs(cp.Val + other.Val)
+            have_opposite_val = np.less_equal(sum, 1e-12)
+            if have_opposite_val.all():
+                print("Made it here")
+                cp.IPList[0].scalar -= other.IPList[0].scalar
                 return [Term(list(cp.IPList))]
             return list([cp, other.copy()])
         if isinstance(other, list):
