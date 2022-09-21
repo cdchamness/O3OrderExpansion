@@ -425,8 +425,8 @@ class Term(object):
                     if np.linalg.norm(sample) <= 1:
                         lattice[i,:] = sample / np.linalg.norm(sample)
                         break
-                    else: 
-                        length = int(np.sqrt(np.shape(lattice)[0]))
+        else: 
+            length = int(np.sqrt(np.shape(lattice)[0]))
 
         copies = 2 * len(self.IPList)
         lat_shape = np.shape(lattice)
