@@ -57,12 +57,11 @@ def updateLat(lattice, momentum, dt):
     return np.einsum('ijk,ik->ij', expo(dt * momentum), lattice)
 
 
-
 def getTermValue(term, lattice):
     return term.getScalar() * term.getValue(lattice=lattice)
 
 
-def getFlowValues(SFlow, lattice, time, beta):
+def getExpansionValues(SFlow, lattice, time, beta):
     F = 0
     orderCoef = beta
     for OrderFlow in SFlow:
@@ -72,23 +71,29 @@ def getFlowValues(SFlow, lattice, time, beta):
     
     return F 
 
-def LeapFrog(SFlow, lattice, mom, time, dt, beta):
-    mom += 0.5*dt*getFlowValues(SFlow, lattice, time, beta)
-    lattice = updateLat(lattice, mom, dt)
-    mom += 0.5*dt*getFlowValues(SFlow, lattice, time, beta)
-    return lattice, mom
-
-def RK4(SFlow, lattice, time, dt, beta):
-    k1 = getFlowValues(SFlow, lattice, time, beta)
+def RK4(SFlow, lattice, time, dt, beta, LappTerms=None):
+    L = 0
+    k1 = getExpansionValues(SFlow, lattice, time, beta)
     x1 = updateLat(lattice, k1, 0.5 * dt)
-    k2 = getFlowValues(SFlow, x1, time + 0.5 * dt, beta)
+    k2 = getExpansionValues(SFlow, x1, time + 0.5 * dt, beta)
     x2 = updateLat(lattice, k2, 0.5 * dt)
-    k3 = getFlowValues(SFlow, x2, time + 0.5 * dt, beta)
-    x3 = updateLat(lattice, k3, 0.5 * dt)
-    k4 = getFlowValues(SFlow, x3, time + dt, beta)
+    k3 = getExpansionValues(SFlow, x2, time + 0.5 * dt, beta)
+    x3 = updateLat(lattice, k3, dt)
+    k4 = getExpansionValues(SFlow, x3, time + dt, beta)
 
     F = (k1 + 2 * k2 + 2 * k3 + k4) / 6.0
-    return updateLat(lattice, F, dt)
+    out = updateLat(lattice, F, dt)
+    if LappTerms is None:
+        return out
+    else:
+        l1 = getExpansionValues(LappTerms, lattice, time, beta)
+        l2 = getExpansionValues(LappTerms, x1, time, beta)
+        l3 = getExpansionValues(LappTerms, x2, time, beta)
+        l4 = getExpansionValues(LappTerms, x3, time, beta)
+
+        L = (l1 + 2 * l2 + 2 * l3 + l4)/6.0
+
+        return out, L
 
 def makeSolnTerms(termList):
     Soln = []
@@ -100,12 +105,12 @@ def makeSolnTerms(termList):
     return Soln 
 
 
-def getFlowTerms(Soln):
+def getFlowTerms(Soln, partialIndexType="x"):
     FlowList = []
     for Order in Soln:
         orderList = []
         for term in Order:
-            dTerms = term.partial("x")
+            dTerms = term.partial(partialIndexType)
             for dT in dTerms:
                 orderList.append(dT)
                 orderList = sf.ReduceTermList(orderList)
@@ -113,35 +118,52 @@ def getFlowTerms(Soln):
     return FlowList
 
 
-def getLappTerms(Soln):
+def getLappTerms(Soln, partialIndexType="x"):
     LappList = []
     for Order in Soln:
         orderList = []
         for term in Order:
-            ddTerms = sf.Laplacian(term, "x")
+            ddTerms = sf.Laplacian(term, partialIndexType)
             for ddT in ddTerms:
                 orderList.append(ddT)
                 orderList = sf.ReduceTermList(orderList)
         LappList.append(orderList)
     return LappList
 
+def copyTermList(termList):
+    outList = []
+    for OrderList in termList:
+        newOrderList = []
+        for term in OrderList:
+            newOrderList.append(term.copy())
+        outList.append(newOrderList)
+    return outList
+
+def setTermsIndexType(termList, newIndexType):
+    for OrderList in termList:
+        for term in OrderList:
+            term.set_index_type(newIndexType)
+
+
 def main():
     import ProgressBar as pb
 
-    LatSize = 16 # Volume (needs to be a perfect square)
-    lattice = np.empty((LatSize,3))
-    for i in range(LatSize):
-        while True:
-            sample = np.random.uniform(-1., 1., (3))
-            if np.linalg.norm(sample) <= 1:
-                lattice[i,:] = sample / np.linalg.norm(sample)
-                break
+    LatSize = 16 
+
+    np.random.seed(222)
+    lattice = np.random.normal(0, 1., [LatSize, 3])
+
+    # normalize the spins
+    inorm = 1/np.sqrt(np.einsum('ij,ij->i',lattice,lattice))
+    lattice = lattice*inorm[:,None]
+
     print(lattice)
     print(np.einsum("ij,ij->i",lattice, lattice))
 
     Order0 = ["0.125<y,__|y,+1>"]
     Order1 = ["0.05<y,__,__|y,+1,+1>", "-0.025<y,+1,__|y,__,__><y,__,__|y,__,+1>", "0.00416667<y,__|y,+1><y,__|y,+1>"]
     SolnStrings = [Order0, Order1]
+    SolnStrings = [["1.0<t,__|t,+1>"]]
 
     Soln = makeSolnTerms(SolnStrings)
     Flow = getFlowTerms(Soln)
@@ -152,17 +174,17 @@ def main():
     print("Lapp: ", Lapp)
 
     #''' # This compares results when integrate with different time steps 
-    dts = [1, 0.1, 0.01, 0.001, 0.0001, 0.00001]
+    steps = [1, 10, 100, 1000, 10_000, 100_000, 1_000_000]
     lats, lapps = [], []
-    for dt in dts:
+    for step in steps:
+        dt = 1.0/step
         clattice = np.array(lattice)
         times = np.arange(0.0, 1.0, dt)
         lapp = 0
         pb1 = pb.ProgressBar(len(times), prefix=dt)
         for i, t in enumerate(times):
-            lapp += 0.5 * dt * getFlowValues(Lapp, clattice, t, 1.263)
-            clattice = RK4(Flow, clattice, t, dt, 1.263)
-            lapp += 0.5 * dt * getFlowValues(Lapp, clattice, t+dt, 1.263)
+            clattice, lapp_next = RK4(Flow, clattice, t, dt, beta=0.5, LappTerms=Lapp)
+            lapp += dt * lapp_next
             pb1.print(i)
         print(clattice)
         print(np.einsum("ij,ij->i", clattice, clattice))
@@ -171,7 +193,7 @@ def main():
         lapps.append(lapp)
 
     for i in range(1, len(lats)):
-        print("\n{} - {}:\nlattice:\n".format(i,i-1), lats[i]-lats[i-1])
+        print("\n{} - {}:\nlattice:\n".format(steps[i],steps[i-1]), lats[i]-lats[i-1])
         print("Laplacian:", lapps[i]-lapps[i-1])
 
     #'''
