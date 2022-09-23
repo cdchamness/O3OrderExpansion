@@ -542,14 +542,12 @@ class Term(object):
         cp = self.copy()
         if isinstance(other, Term):
             diff = np.abs(cp.Val - other.Val)
-            have_same_val = np.less_equal(diff,1e-12)
-            if have_same_val.all():
+            if (np.less_equal(diff,1e-10)).all():
                 cp.IPList[0].scalar += other.IPList[0].scalar
                 return [Term(list(cp.IPList))]
-            sum = np.abs(cp.Val + other.Val)
-            have_opposite_val = np.less_equal(sum, 1e-12)
-            if have_opposite_val.all():
-                cp.IPList[0].scalar -= other.IPList[0].scalar
+            summed = np.abs(cp.Val + other.Val)
+            if (np.less_equal(summed, 1e-10)).all():
+                cp.IPList[0].scalar -= other.IPList[0].scalar             
                 return [Term(list(cp.IPList))]
             return list([cp, other.copy()])
         if isinstance(other, list):
