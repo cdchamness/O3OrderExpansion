@@ -2,14 +2,14 @@ import numpy as np
 from O3_symbolic import InnerProduct, Term
 
 
-def Laplacian(term, partialIndexType="x"):
+def Laplacian(term, partialIndexType="x", tIndex="a"):
     if isinstance(term, Term):
 
         #print("Doing Laplacian on: ", term)
 
         cp = term.copy()
         cp.IPList[0].scalar *= -1
-        dT_List = cp.partial(partialIndexType=partialIndexType)
+        dT_List = cp.partial(partialIndexType=partialIndexType, tIndex=tIndex)
 
         #print("Result of 1st derivative: ", dT_List)
 
@@ -18,7 +18,7 @@ def Laplacian(term, partialIndexType="x"):
 
             #print("\nDoing 2nd Derivative on: ", dT)
 
-            ddTs = dT.partial(partialIndexType=partialIndexType)
+            ddTs = dT.partial(partialIndexType=partialIndexType, tIndex=tIndex)
             for ddT in ddTs:
                 ddTList.append(ddT)
                 ddTList = ReduceTermList(ddTList)
@@ -28,42 +28,32 @@ def Laplacian(term, partialIndexType="x"):
     else:
         print("Laplacian must be called on a 'Term' object. Not type: {}".format(type(term)))
 
-def GradiantProduct(T1, T2, partialIndexType='x', doPrint=False):
+def GradiantProduct(T1, T2, partialIndexType='x', tIndex="a"):
     if isinstance(T1, Term) and isinstance(T2, Term):
         outList = []
-        if doPrint:
-            print("Doing Gradiant Product: d_"+partialIndexType, T1, ' X d_'+partialIndexType, T2)
-        dT1_List = T1.partial(partialIndexType=partialIndexType)
-        dT2_List = T2.partial(partialIndexType=partialIndexType)
+        dT1_List = T1.partial(partialIndexType=partialIndexType, tIndex=tIndex)
+        dT2_List = T2.partial(partialIndexType=partialIndexType, tIndex=tIndex)
 
         for dT1 in dT1_List:
             for dT2 in dT2_List:
                 out = dT1.copy() * dT2.copy()
-                if doPrint:
-                    print("Results for: ", dT1, " X ", dT2, ": ")
                 for term in out:
-                    if doPrint:
-                        print(term)
                     outList.append(term)
                     outList = ReduceTermList(outList)
-                if doPrint:
-                    print(" ")
-        if doPrint:
-            print(" ")
         return outList
     
     if isinstance(T1, Term) and isinstance(T2, InnerProduct):
         T2 = Term([T2])
-        return GradiantProduct(T1, T2, partialIndexType=partialIndexType, doPrint=doPrint) 
+        return GradiantProduct(T1, T2, partialIndexType=partialIndexType, tIndex=tIndex) 
         
     if isinstance(T1, InnerProduct) and isinstance(T2, Term):
         T1 = Term([T1])
-        return GradiantProduct(T1, T2, partialIndexType=partialIndexType, doPrint=doPrint) 
+        return GradiantProduct(T1, T2, partialIndexType=partialIndexType, tIndex=tIndex) 
 
     if isinstance(T1, InnerProduct) and isinstance(T2, InnerProduct):
         T1 = Term([T1])
         T2 = Term([T2])
-        return GradiantProduct(T1, T2, partialIndexType=partialIndexType, doPrint=doPrint) 
+        return GradiantProduct(T1, T2, partialIndexType=partialIndexType, tIndex=tIndex) 
 
     print("One of T1 (type: {}) or T2 (type: {}) could not be converted into Type: {}".format(type(T1), type(T2), type(Term)))
     return None
@@ -102,7 +92,7 @@ def NextOrderGP(CurrentOrderGPList):
         S.ket[-1] = 1
         newTerm = Term([S.copy()])
 
-        nextGPTerms = GradiantProduct(Tcp, newTerm, doPrint=False)
+        nextGPTerms = GradiantProduct(Tcp, newTerm)
         for tt in nextGPTerms:
             GPTerms.append(tt)
             GPTerms = ReduceTermList(GPTerms)

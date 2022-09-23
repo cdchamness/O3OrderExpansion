@@ -85,31 +85,29 @@ class InnerProduct(object):
             return newList
 
         if isinstance(other, Term): # Returns a List of Terms, as it could produce multiple Terms
-            if cp.inside == "":
+            if len(cp.inside) == 0:
                 newIPList = list(other.IPList) + [cp]
                 return [Term(newIPList)]
-            elif cp.inside == "T":
+            elif len(cp.inside) == 2:
                 newIPList1, newIPList2 = [], []
                 for IP in other.IPList:
-                    if IP.inside == "T":
+                    if len(IP.inside) == 2 and cp.inside[1] == IP.inside[1]:
                         Term1, Term2 = cp * IP
                         newIPList1 += Term1.IPList
                         newIPList2 += Term2.IPList
-                    elif IP.inside == "":
+                    else:
                         newIPList1 += [IP]
                         newIPList2 += [IP]
-                    else:
-                        raise TypeError("This should be inaccessible. If you are seeing this something went wrong way before here")
                     
-                if newIPList1 == newIPList2: # This should only be the case if 'other' had no IPs with inside == "T". So just add cp to newIPList1 and return the Term.
+                if newIPList1 == newIPList2: # This should only be the case if 'other' had no IPs with the same inside as self. So just add cp to newIPList1 and return the Term.
                     newIPList1 += [cp]
                     return [Term(newIPList1)]
-                else: # This should only be the case if there was an InnerProduct that had inside == "T" which should result in 2 terms.
+                else: # This should only be the case if there was an InnerProduct that had inside matching self which should result in 2 terms.
                     return [Term(newIPList1), Term(newIPList2)]
 
         if isinstance(other, InnerProduct): #This will return a list of Terms as it could result in 2 Terms.
             if cp.index_type == other.index_type:
-                if cp.inside == "T" and other.inside == "T":
+                if len(cp.inside) == 2 and len(other.inside) == 2 and cp.inside[1] == other.inside[1]:
                     # This is where the magic happens
                     IP1 = InnerProduct(cp.bra, other.bra, index_type=cp.index_type, scalar=cp.scalar*other.scalar, xKdelta=cp.xKdelta, partialIndexType=cp.partialIndexType, muKdeltas=cp.muKdeltas+other.muKdeltas)
                     IP2 = InnerProduct(cp.ket, other.ket, index_type=cp.index_type, scalar=1.0, xKdelta=other.xKdelta, partialIndexType=other.partialIndexType)
@@ -143,7 +141,7 @@ class InnerProduct(object):
             self.extend(amount=diff)
 
     def reduce(self):
-        if self.inside == "TT":
+        if len(self.inside) == 4 and self.inside[1] == self.inside[3]:
             self.inside = ""
             self.scalar *= -2.0
 
@@ -154,14 +152,14 @@ class InnerProduct(object):
         
         return self
 
-    def partial(self, partialIndexType="x"):
+    def partial(self, partialIndexType="x", tIndex="a"):
         cp = self.copy()
         if cp.bra == cp.ket:
             return []
 
         if partialIndexType != cp.index_type:
-            IP1 = InnerProduct(bra=cp.bra, ket=cp.ket, index_type=cp.index_type, inside=cp.inside + "T", scalar = -cp.scalar, xKdelta=cp.bra, partialIndexType=partialIndexType, muKdeltas=cp.muKdeltas)
-            IP2 = InnerProduct(bra=cp.bra, ket=cp.ket, index_type=cp.index_type, inside=cp.inside + "T", scalar = cp.scalar, xKdelta=cp.ket, partialIndexType=partialIndexType, muKdeltas=cp.muKdeltas)
+            IP1 = InnerProduct(bra=cp.bra, ket=cp.ket, index_type=cp.index_type, inside=cp.inside + "T" + tIndex, scalar = -cp.scalar, xKdelta=cp.bra, partialIndexType=partialIndexType, muKdeltas=cp.muKdeltas)
+            IP2 = InnerProduct(bra=cp.bra, ket=cp.ket, index_type=cp.index_type, inside=cp.inside + "T" + tIndex, scalar = cp.scalar, xKdelta=cp.ket, partialIndexType=partialIndexType, muKdeltas=cp.muKdeltas)
             return [IP1, IP2]
 
         elif partialIndexType == cp.index_type:
@@ -173,13 +171,13 @@ class InnerProduct(object):
             
             if bra_shift_count == 0:
                 # This is the derivative hitting the same place again, which is non-zero, but creates no muKdeltas
-                d_IPs.append(InnerProduct(bra=cp.bra, ket=cp.ket, index_type=cp.index_type, inside=cp.inside + "T", scalar = -cp.scalar, partialIndexType=""))
+                d_IPs.append(InnerProduct(bra=cp.bra, ket=cp.ket, index_type=cp.index_type, inside=cp.inside + "T" + tIndex, scalar = -cp.scalar, partialIndexType=""))
 
             elif bra_shift_count % 2  == 0:
                 AllmuKdeltas = self.getAllmuKdeltas(cp.bra)
                 for next_muKdeltas in AllmuKdeltas:                    
                     # make a new IP for each possible pairing
-                    d_IPs.append(InnerProduct(bra=cp.bra, ket=cp.ket, index_type=cp.index_type, inside=cp.inside + "T", scalar = -len(AllmuKdeltas) * cp.scalar, partialIndexType="", muKdeltas=next_muKdeltas))
+                    d_IPs.append(InnerProduct(bra=cp.bra, ket=cp.ket, index_type=cp.index_type, inside=cp.inside + "T" + tIndex, scalar = -len(AllmuKdeltas) * cp.scalar, partialIndexType="", muKdeltas=next_muKdeltas))
 
             # Finished the partial on bra, now do the same for the kets
             ket_shifts = self.getShifts(cp.ket)
@@ -187,13 +185,13 @@ class InnerProduct(object):
 
             if ket_shift_count == 0:
                 # Same as bra_shift_count == 0, but you dont get the extra minus sign
-                 d_IPs.append(InnerProduct(bra=cp.bra, ket=cp.ket, index_type=cp.index_type, inside=cp.inside + "T", scalar = cp.scalar, partialIndexType=""))
+                 d_IPs.append(InnerProduct(bra=cp.bra, ket=cp.ket, index_type=cp.index_type, inside=cp.inside + "T" + tIndex, scalar = cp.scalar, partialIndexType=""))
 
             elif ket_shift_count % 2 == 0:
                 AllmuKdeltas = self.getAllmuKdeltas(cp.ket)
                 for next_muKdeltas in AllmuKdeltas:
                     # make a new IP for each possible pairing
-                    d_IPs.append(InnerProduct(bra=cp.bra, ket=cp.ket, index_type=cp.index_type, inside=cp.inside + "T", scalar = len(AllmuKdeltas) * cp.scalar, partialIndexType="", muKdeltas=next_muKdeltas))
+                    d_IPs.append(InnerProduct(bra=cp.bra, ket=cp.ket, index_type=cp.index_type, inside=cp.inside + "T" + tIndex, scalar = len(AllmuKdeltas) * cp.scalar, partialIndexType="", muKdeltas=next_muKdeltas))
             return d_IPs
 
     def doubleFactorial(self, num: int) -> int:
@@ -287,7 +285,7 @@ class Term(object):
             if not isinstance(elem, InnerProduct):
                 raise TypeError("Element of IPList is not an InnerProduct. {} has Type: {}".format(elem, type(elem)))
         self.IPList = [ip.copy() for ip in IPList]
-        self.Tindex = [i for i, ip in enumerate(self.IPList) if ip.inside == "T"]
+        self.Tindex = [i for i, ip in enumerate(self.IPList) if len(ip.inside) == 2]
         self.simple_reduce()
         self.Val = self.getValue()
 
@@ -366,7 +364,7 @@ class Term(object):
             ip3.bra = [val for (i, val) in enumerate(ip3.bra) if i not in collapse_index_list]
             ip3.ket = [val for (i, val) in enumerate(ip3.ket) if i not in collapse_index_list]
         
-        # This removes terms that are pointless <x_|x_> == 1, <x|x> == 1, etc.
+        # This removes terms that are pointless <x_|x_>, <x|x>, etc.
         i = 0
         carry_scalar = 1.0
         while i < len(self.IPList):
@@ -379,10 +377,10 @@ class Term(object):
                 i+=1
 
 
-    def partial(self, partialIndexType="x"):
+    def partial(self, partialIndexType="x", tIndex="a"):
         out = []
         for i, ip in enumerate(self.IPList):
-            newIPs = ip.partial(partialIndexType=partialIndexType)
+            newIPs = ip.partial(partialIndexType=partialIndexType, tIndex=tIndex)
             otherIPs = self.IPList[:i] + self.IPList[i+1:]
             if len(otherIPs) == 0:
                 for newIP in newIPs:
@@ -448,7 +446,7 @@ class Term(object):
 
         vect = False
         for IP in self.IPList:
-            if IP.inside == 'T':
+            if len(IP.inside) == 2:
                 vect = True
 
 
@@ -492,7 +490,7 @@ class Term(object):
             for bra_index in range(0,copies,2):
                 ket_index = bra_index + 1
                 IP_index = bra_index // 2
-                if self.IPList[IP_index].inside == '':
+                if len(self.IPList[IP_index].inside) == 0:
                     # do inner product
                     a = np.einsum('ij,ij->i', bra_ket_lats[bra_index,:,:], bra_ket_lats[ket_index,:,:])
                     #a = self.IPList[IP_index].scalar * np.einsum('ij,ij->i', bra_ket_lats[bra_index,:,:], bra_ket_lats[ket_index,:,:])
@@ -502,7 +500,7 @@ class Term(object):
                     elif vect == True:
                         inter = np.einsum('i,ij->ij', a, inter)
 
-                elif self.IPList[IP_index].inside == 'T':
+                elif len(self.IPList[IP_index].inside) == 2:
                     # do inner product with T inserted
                     # Removed part of 'a' calculation that multiplied by self.IPList[IP_index].scalar 
                     # This may cause issues in certain unknown cases. IDK. This is what is done on IP

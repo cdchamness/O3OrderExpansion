@@ -105,12 +105,12 @@ def makeSolnTerms(termList):
     return Soln 
 
 
-def getFlowTerms(Soln, partialIndexType="x"):
+def getFlowTerms(Soln, partialIndexType="x", tIndex="a"):
     FlowList = []
     for Order in Soln:
         orderList = []
         for term in Order:
-            dTerms = term.partial(partialIndexType)
+            dTerms = term.partial(partialIndexType, tIndex)
             for dT in dTerms:
                 orderList.append(dT)
                 orderList = sf.ReduceTermList(orderList)
@@ -118,12 +118,12 @@ def getFlowTerms(Soln, partialIndexType="x"):
     return FlowList
 
 
-def getLappTerms(Soln, partialIndexType="x"):
+def getLappTerms(Soln, partialIndexType="x", tIndex="a"):
     LappList = []
     for Order in Soln:
         orderList = []
         for term in Order:
-            ddTerms = sf.Laplacian(term, partialIndexType)
+            ddTerms = sf.Laplacian(term, partialIndexType, tIndex)
             for ddT in ddTerms:
                 orderList.append(ddT)
                 orderList = sf.ReduceTermList(orderList)
