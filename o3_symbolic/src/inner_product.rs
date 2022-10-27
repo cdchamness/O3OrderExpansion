@@ -105,7 +105,7 @@ impl fmt::Display for InnerProduct {
             my_str += "T";
             my_str += &g.alpha_type.to_string();
         }
-        if self.inner.len() != 0 {
+        if !self.inner.is_empty() {
             my_str += "|";
         }
         my_str += &self.ket.get_string();

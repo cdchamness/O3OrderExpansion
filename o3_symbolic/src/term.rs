@@ -56,12 +56,8 @@ impl Term {
 
     pub fn reduce(&self) -> Term {
         let mut new_term = Term { ips: self.ips.clone() };
-        loop {
-            if let Some(next_delta) = new_term.get_delta_index() {
-                new_term = self.collapse_delta(&next_delta);
-            } else {
-                break;
-            }
+        while let Some(next_delta) = new_term.get_delta_index() {
+            new_term = self.collapse_delta(&next_delta);
         }
         new_term 
     }

@@ -16,8 +16,8 @@ fn main() {
     let basic_bra2 = BraKet::new('l', 'y', vec![0,1]);
     let basic_ket2 = BraKet::new('l', 'y', vec![1,1]);
     
-    let basic_ip = InnerProduct::new(3.0, basic_bra.clone(), Vec::new(), basic_ket.clone(), None);
-    let basic_ip2 = InnerProduct::new(3.0, basic_bra2.clone(), Vec::new(), basic_ket2.clone(), None);
+    let basic_ip = InnerProduct::new(3.0, basic_bra, Vec::new(), basic_ket, None);
+    let basic_ip2 = InnerProduct::new(3.0, basic_bra2, Vec::new(), basic_ket2, None);
     let mut new_term = Term::new(vec![basic_ip, basic_ip2]);
     new_term.combine_scalars();
     println!("starting term: {}\n", new_term);
