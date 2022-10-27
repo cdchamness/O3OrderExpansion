@@ -24,7 +24,7 @@ pub struct InnerProduct {
     bra: BraKet,
     inner: Vec<Gen>,
     ket: BraKet,
-    delta: Option<KDelta>,
+    pub delta: Option<KDelta>,
 }
 
 impl InnerProduct {
@@ -39,29 +39,6 @@ impl InnerProduct {
         }
     }
 
-    pub fn get_string(&self) -> String {
-
-        let mut my_str = "".to_string();
-        if self.scalar != 1.0 {
-            my_str += &self.scalar.to_string();
-        }
-        my_str += "<";
-        my_str += &self.bra.get_string();
-        my_str += "|";
-        for g in &self.inner {
-            my_str += "T";
-            my_str += &g.alpha_type.to_string();
-        }
-        if self.inner.len() != 0 {
-            my_str += "|";
-        }
-        my_str += &self.ket.get_string();
-        my_str += ">";
-        if let Some(delt) = &self.delta {
-            my_str += &delt.to_string();
-        }
-        my_str
-    }
 
     pub fn extract_scalar(&mut self) -> f64 {
         let num = self.scalar;
@@ -89,11 +66,54 @@ impl InnerProduct {
         }
         out
     }
+
+    pub fn collapse_delta(&self, delta: &KDelta) -> InnerProduct {
+        let delta_clone = self.delta.clone();
+        let new_bra = self.bra.collapse_delta(delta);
+        let new_ket = self.ket.collapse_delta(delta);
+        if delta_clone == self.delta {
+            InnerProduct {
+                scalar: self.scalar,
+                bra: new_bra,
+                inner: self.inner.clone(),
+                ket: new_ket,
+                delta: None,
+            }
+        }
+        else {
+            InnerProduct {
+                scalar: self.scalar,
+                bra: new_bra,
+                inner: self.inner.clone(),
+                ket: new_ket,
+                delta: delta_clone,
+            }
+        }
+    }
 }
 
 impl fmt::Display for InnerProduct {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.get_string())
+        let mut my_str = "".to_string();
+        if self.scalar != 1.0 {
+            my_str += &self.scalar.to_string();
+        }
+        my_str += "<";
+        my_str += &self.bra.get_string();
+        my_str += "|";
+        for g in &self.inner {
+            my_str += "T";
+            my_str += &g.alpha_type.to_string();
+        }
+        if self.inner.len() != 0 {
+            my_str += "|";
+        }
+        my_str += &self.ket.get_string();
+        my_str += ">";
+        if let Some(delt) = &self.delta {
+            my_str += &delt.to_string();
+        }
+        write!(f, "{}", my_str)
     }
 }
 

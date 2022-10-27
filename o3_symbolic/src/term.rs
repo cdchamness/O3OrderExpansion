@@ -44,6 +44,36 @@ impl Term {
         
         out
     }
+
+    pub fn collapse_delta(&self, delta: &KDelta) -> Term {
+        let mut new_ips = Vec::new();
+        for ip in &self.ips {
+            new_ips.push(ip.collapse_delta(delta));
+        }
+        Term { ips: new_ips }
+    }
+
+
+    pub fn reduce(&self) -> Term {
+        let mut new_term = Term { ips: self.ips.clone() };
+        loop {
+            if let Some(next_delta) = new_term.get_delta_index() {
+                new_term = self.collapse_delta(&next_delta);
+            } else {
+                break;
+            }
+        }
+        new_term 
+    }
+
+    fn get_delta_index(&self) -> Option<KDelta> {
+        for ip in &self.ips {
+            if let Some(delta) = ip.delta.clone() {
+                return Some(delta);
+            }
+        }
+        None
+    }
 }
 
 
@@ -61,7 +91,7 @@ impl fmt::Display for Term {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut disp_string = "".to_string();
         for ip in &self.ips {
-            disp_string += &ip.get_string();
+            disp_string += &ip.to_string();
         }
 
         write!(f, "{}", disp_string)

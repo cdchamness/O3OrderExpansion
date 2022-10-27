@@ -16,8 +16,15 @@ impl KDelta {
 		}
 	}
 
-	pub fn to_string(&self) -> String {
-		let mut my_str = "δ(".to_string();
+	pub fn get_last_non_zero_index(&self) -> Option<usize> {
+		Some(self.shift.len() - self.shift.iter().rev().position(|&r| r != 0)? - 1)
+	}
+}
+
+
+impl fmt::Display for KDelta {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut my_str = "δ(".to_string();
         my_str += &self.index_type_1.to_string();
         my_str += "|";
         my_str += &self.index_type_2.to_string();
@@ -29,19 +36,6 @@ impl KDelta {
         	my_str += &shift.to_string();
         }
         my_str += ")";
-        my_str
-	}
-
-	pub fn get_last_non_zero_index(&self) -> usize {
-		self.shift.len() - self.shift.iter().rev().position(|&r| r != 0).unwrap() - 1
-	}
-}
-
-
-impl fmt::Display for KDelta {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let disp_string = self.to_string();
-
-        write!(f, "{}", disp_string)
+        write!(f, "{}", my_str)
     }
 }

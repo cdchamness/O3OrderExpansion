@@ -39,30 +39,23 @@ impl BraKet {
     }
     
     pub fn collapse_delta(&self, delta: &KDelta) -> BraKet {
-    	if self.index_type == delta.index_type_1 {
-    		if self.shift.len() == delta.shift.len() {
-    			let last = delta.get_last_non_zero_index();
-    			if self.shift[last] != 0 {
-    				let mut new_shift = Vec::new();
-    				for (i, step) in self.shift.iter().enumerate() {
-    					new_shift.push(delta.shift[i] - self.shift[i])
-    				}
-    				return BraKet::new(self.lattice_type, delta.index_type_2, new_shift);
-    			}
+    	if self.index_type == delta.index_type_1 || self.index_type == delta.index_type_2 && self.shift.len() == delta.shift.len() {
+			let new_index = if self.index_type == delta.index_type_1 {
+				delta.index_type_2
+			} else {
+				delta.index_type_1
+			};
+			if let Some(last) = delta.get_last_non_zero_index() {	
+				let mut new_shift = self.shift.clone();
+				for _j in 0..self.shift[last]{
+					for i in 0..self.shift.len() {
+						new_shift[i] -= delta.shift[i]
+					}
+				};
+				return BraKet::new(self.lattice_type, new_index, new_shift);
     		}
-    	}
-    	if self.index_type == delta.index_type_2 {
-    		if self.shift.len() == delta.shift.len() {
-    			let last = delta.get_last_non_zero_index();
-    			if self.shift[last] != 0 {
-    				let mut new_shift = Vec::new();
-    				for (i, step) in self.shift.iter().enumerate() {
-    					new_shift.push(delta.shift[i] - self.shift[i])
-    				}
-    				return BraKet::new(self.lattice_type, delta.index_type_1, new_shift);
-    			}
-    		}
-    	}
+			return BraKet::new(self.lattice_type, new_index, self.shift.clone());
+		}
     	self.clone()
     }
 
