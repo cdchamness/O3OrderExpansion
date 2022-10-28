@@ -39,12 +39,18 @@ impl BraKet {
     }
     
     pub fn collapse_delta(&self, delta: &KDelta) -> BraKet {
-    	if self.index_type == delta.index_type_1 || self.index_type == delta.index_type_2 && self.shift.len() == delta.shift.len() {
-			let new_index = if self.index_type == delta.index_type_1 {
-				delta.index_type_2
-			} else {
-				delta.index_type_1
-			};
+		if delta.index_type_1 != delta.index_type_2 {
+			if self.index_type == delta.index_type_1 || self.index_type == delta.index_type_2 && self.shift.len() == delta.shift.len() {
+				let new_index = if self.index_type == delta.index_type_1 {
+					delta.index_type_2
+				} else {
+					delta.index_type_1
+				};
+				let new_shift: Vec<i8> = (0..self.shift.len()).map(|i| self.shift[i] - delta.shift[i]).collect();
+				return BraKet::new(self.lattice_type, new_index, new_shift);
+			}
+		}
+		else if self.index_type == delta.index_type_1 && self.shift.len() == delta.shift.len() {
 			if let Some(last) = delta.get_last_non_zero_index() {	
 				let mut new_shift = self.shift.clone();
 				for _j in 0..self.shift[last]{
@@ -52,9 +58,9 @@ impl BraKet {
 						new_shift[i] -= delta.shift[i]
 					}
 				};
-				return BraKet::new(self.lattice_type, new_index, new_shift);
-    		}
-			return BraKet::new(self.lattice_type, new_index, self.shift.clone());
+				new_shift.remove(last);
+				return BraKet::new(self.lattice_type, self.index_type, new_shift);
+			}
 		}
     	self.clone()
     }
@@ -70,4 +76,66 @@ impl fmt::Display for BraKet {
 
         write!(f, "{}", disp_string)
     }
+}
+
+#[cfg(test)]
+mod tests {
+	use crate::kdelta::*;
+	use crate::bra_ket::*;
+
+	#[test]
+	fn collapse_x_delta_1() {
+		let bra = BraKet::new('l', 'x', vec![0,1,1]);
+		let delta = KDelta::new('x', 'y', vec![0,1,0]);
+		assert_eq!(bra.collapse_delta(&delta), BraKet::new('l', 'y', vec![0,0,1]))
+	}
+
+	#[test]
+	fn collapse_x_delta_2() {
+		let bra = BraKet::new('l', 'x', vec![0,1]);
+		let delta = KDelta::new('x', 'y', vec![1,1]);
+		assert_eq!(bra.collapse_delta(&delta), BraKet::new('l', 'y', vec![-1,0]))
+	}
+
+	#[test]
+	fn collapse_x_delta_3() {
+		let bra = BraKet::new('l', 'x', vec![0,1]);
+		let delta = KDelta::new('y', 'z', vec![1,1]);
+		assert_eq!(bra.collapse_delta(&delta), BraKet::new('l', 'x', vec![0,1]))
+	}
+
+	#[test]
+	fn collapse_mu_delta_1() {
+		let bra = BraKet::new('l', 'x', vec![0,1]);
+		let delta = KDelta::new('x', 'x', vec![1,1]);
+		assert_eq!(bra.collapse_delta(&delta), BraKet::new('l', 'x', vec![-1]))
+	}
+
+	#[test]
+	fn collapse_mu_delta_2() {
+		let bra = BraKet::new('l', 'x', vec![0,1,0,1,0]);
+		let delta = KDelta::new('x', 'x', vec![0,0,1,1,0]);
+		assert_eq!(bra.collapse_delta(&delta), BraKet::new('l', 'x', vec![0,1,-1,0]))
+	}
+
+	#[test]
+	fn collapse_mu_delta_3() {
+		let bra = BraKet::new('l', 'x', vec![0,1,0,1,0]);
+		let delta = KDelta::new('y', 'y', vec![0,0,1,1,0]);
+		assert_eq!(bra.collapse_delta(&delta), BraKet::new('l', 'x', vec![0,1,0,1,0]))
+	}
+
+	#[test]
+	fn collapse_mu_delta_4() {
+		let bra = BraKet::new('l', 'x', vec![0,1,1,3,0]);
+		let delta = KDelta::new('x', 'x', vec![0,0,1,1,0]);
+		assert_eq!(bra.collapse_delta(&delta), BraKet::new('l', 'x', vec![0,1,-2,0]))
+	}
+
+	#[test]
+	fn collapse_mu_delta_5() {
+		let bra = BraKet::new('l', 'x', vec![0,1,1,0,0]);
+		let delta = KDelta::new('x', 'x', vec![0,0,1,1,0]);
+		assert_eq!(bra.collapse_delta(&delta), BraKet::new('l', 'x', vec![0,1,1,0]))
+	}
 }

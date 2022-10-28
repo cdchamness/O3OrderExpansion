@@ -25,7 +25,9 @@ fn main() {
     let d_new_term = new_term.partial('x', 'a');
     for dt in d_new_term {
         let mut rdt = dt.reduce();
+        println!("\nFirst derivative: {}", rdt);
         let dd_terms = rdt.partial('x', 'a');
+        println!("\nAfter both derivatives");
         for mut ddt in dd_terms {
             ddt.combine_scalars();
             let result = ddt.reduce();

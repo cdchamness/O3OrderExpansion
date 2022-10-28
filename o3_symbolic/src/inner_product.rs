@@ -171,36 +171,6 @@ impl Mul<Vec<InnerProduct>> for InnerProduct {
 
 
 
-#[cfg(test)]
-mod tests {
-    use crate::inner_product::*;
-
-    #[test]
-    fn right_scalar_mul() {
-        let basic_bra = BraKet::new('l', 'x', vec![0]);
-        let basic_ket = BraKet::new('l', 'x', vec![1]);
-        let basic_ip = InnerProduct::new(1.0, basic_bra.clone(), None, basic_ket.clone());
-
-        let result = 10.0 * basic_ip;
-        assert_eq!(result, InnerProduct::new(10.0, basic_bra.clone(), None, basic_ket.clone()));
-    }
-
-    #[test]
-    fn left_scalar_mul() {
-        let basic_bra = BraKet::new('l', 'x', vec![0]);
-        let basic_ket = BraKet::new('l', 'x', vec![1]);
-        let basic_ip = InnerProduct::new(1.0, basic_bra.clone(), None, basic_ket.clone());
-
-        let result = basic_ip * 10.0;
-        assert_eq!(result, InnerProduct::new(10.0, basic_bra.clone(), None, basic_ket.clone()));
-    }
-}
-
-
-
-
-
-
 
 
 
