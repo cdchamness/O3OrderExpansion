@@ -1,4 +1,4 @@
-use std::ops::Mul;
+use std::ops::{Mul, MulAssign};
 use std::fmt;
 
 use crate::bra_ket::*;
@@ -14,6 +14,10 @@ impl Gen {
     pub fn new(alpha_type: char) -> Gen {
         Gen { alpha_type }
     }
+
+    pub fn get_type(&self) -> char {
+        self.alpha_type
+    }
 }
 
 
@@ -24,7 +28,7 @@ pub struct InnerProduct {
     bra: BraKet,
     inner: Vec<Gen>,
     ket: BraKet,
-    pub delta: Option<KDelta>,
+    delta: Option<KDelta>,
 }
 
 impl InnerProduct {
@@ -39,6 +43,25 @@ impl InnerProduct {
         }
     }
 
+    pub fn get_scalar(&self) -> f64 {
+        self.scalar.clone()
+    }
+
+    pub fn get_bra(&self) -> BraKet {
+        self.bra.clone()
+    }
+
+    pub fn get_inner(&self) -> Vec<Gen> {
+        self.inner.clone()
+    }
+
+    pub fn get_ket(&self) -> BraKet {
+        self.ket.clone()
+    }
+
+    pub fn get_delta(&self) -> Option<KDelta> {
+        self.delta.clone()
+    }
 
     pub fn extract_scalar(&mut self) -> f64 {
         let num = self.scalar;
@@ -48,6 +71,20 @@ impl InnerProduct {
 
     pub fn set_scalar(&mut self, num: f64) {
         self.scalar = num;
+    }
+
+    pub fn clear_inner_alpha(&mut self, alpha: char) {
+        let mut new_inner = Vec::new();
+        for gen in &self.inner {
+            if gen.get_type() != alpha {
+                new_inner.push(gen.clone());
+            }
+        }
+        self.inner = new_inner;
+    }
+
+    pub fn add_to_inner(&mut self, gen: Gen) {
+        self.inner.push(gen);
     }
 
     pub fn partial(&self, partial_index_type: char, alpha_type: char) -> Vec<InnerProduct> {
@@ -67,28 +104,30 @@ impl InnerProduct {
         out
     }
 
-    pub fn collapse_delta(&self, delta: &KDelta) -> InnerProduct {
-        let delta_clone = self.delta.clone();
-        let new_bra = self.bra.collapse_delta(delta);
-        let new_ket = self.ket.collapse_delta(delta);
-        if delta_clone == self.delta {
-            InnerProduct {
-                scalar: self.scalar,
-                bra: new_bra,
-                inner: self.inner.clone(),
-                ket: new_ket,
-                delta: None,
-            }
+    pub fn collapse_delta(&mut self, delta: &KDelta) {
+        self.bra.collapse_delta(delta);
+        self.ket.collapse_delta(delta);
+        if Some(delta) == self.delta.as_ref() {
+            self.delta = None
         }
-        else {
-            InnerProduct {
-                scalar: self.scalar,
-                bra: new_bra,
-                inner: self.inner.clone(),
-                ket: new_ket,
-                delta: delta_clone,
-            }
-        }
+    }
+
+    pub fn collapse_alpha(&self, other: &InnerProduct, alpha: char) -> (Term, Term) {
+        let mut ip1 = self.clone();
+        let mut ip2 = other.clone();
+        ip1.clear_inner_alpha(alpha);
+        ip2.clear_inner_alpha(alpha);
+
+        let new_ip1 = InnerProduct::new(ip1.get_scalar(), ip1.get_bra(), ip1.get_inner(), ip2.get_bra(), ip1.get_delta());
+        let new_ip2 = InnerProduct::new(ip2.get_scalar(), ip1.get_ket(), ip2.get_inner(), ip2.get_ket(), ip2.get_delta());
+        let new_ip3 = InnerProduct::new(-1.0 * ip1.get_scalar(), ip1.get_bra(), ip1.get_inner(), ip2.get_ket(), ip1.get_delta());
+        let new_ip4 = InnerProduct::new(ip2.get_scalar(), ip1.get_ket(), ip2.get_inner(), ip2.get_bra(), ip2.get_delta());
+
+        let t1 = Term::new(vec![new_ip1, new_ip2]);
+        let t2 = Term::new(vec![new_ip3, new_ip4]);
+
+        (t1, t2)
+
     }
 }
 
@@ -114,6 +153,12 @@ impl fmt::Display for InnerProduct {
             my_str += &delt.to_string();
         }
         write!(f, "{}", my_str)
+    }
+}
+
+impl MulAssign<f64> for InnerProduct {
+    fn mul_assign(&mut self, rhs: f64) {
+        self.scalar *= rhs;
     }
 }
 
@@ -163,6 +208,27 @@ impl Mul<Vec<InnerProduct>> for InnerProduct {
             out.push(self.clone() * item);
         }
         out
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use crate::inner_product::*;
+
+    #[test]
+    fn collapse_alpha_1() {
+        let ip1 = InnerProduct::new(1.0, BraKet::new('l', 'x', vec![1,0,0,0]), vec![Gen::new('a')], BraKet::new('l', 'x', vec![0,1,0,0]), None);
+        let ip2 = InnerProduct::new(1.0, BraKet::new('l', 'x', vec![0,0,1,0]), vec![Gen::new('a')], BraKet::new('l', 'x', vec![0,0,0,1]), None);
+        let (t1, t2) = ip1.collapse_alpha(&ip2, 'a');
+        assert_eq!(t1, Term::new(vec![
+            InnerProduct::new(1.0, BraKet::new('l', 'x', vec![1,0,0,0]), vec![], BraKet::new('l', 'x', vec![0,0,1,0]), None),
+            InnerProduct::new(1.0, BraKet::new('l', 'x', vec![0,1,0,0]), vec![], BraKet::new('l', 'x', vec![0,0,0,1]), None)
+        ]));
+        assert_eq!(t2, Term::new(vec![
+            InnerProduct::new(-1.0, BraKet::new('l', 'x', vec![1,0,0,0]), vec![], BraKet::new('l', 'x', vec![0,0,0,1]), None),
+            InnerProduct::new(1.0, BraKet::new('l', 'x', vec![0,1,0,0]), vec![], BraKet::new('l', 'x', vec![0,0,1,0]), None)
+        ]));
     }
 }
 

@@ -4,6 +4,8 @@ use std::ops::Mul;
 use crate::kdelta::*;
 use crate::inner_product::*;
 
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct Term {
     ips: Vec<InnerProduct>
 }
@@ -14,20 +16,24 @@ impl Term {
         Term { ips }
     }
 
-    pub fn combine_scalars(&mut self) {
+    pub fn scalar_reduce(&mut self) {
         let mut accum = 1.0;
         for ip in &mut self.ips {
-            accum *= ip.extract_scalar()
+            accum *= ip.extract_scalar();
         }
-        self.ips[0].set_scalar(accum);
+        self.ips[0] *= accum
     }
 
-    fn duplicate(&self) -> Term {
+    pub fn get_ips(&self) -> Vec<InnerProduct> {
+        self.ips.clone()
+    }
+
+    pub fn duplicate(&self) -> Term {
         let mut ips = Vec::new();
         for ip in &self.ips {
             ips.push(ip.clone())
         } 
-        Term { ips }
+        Term::new(ips)
     }
 
     pub fn partial(&mut self, partial_index_type: char, alpha_type: char) -> Vec<Term> {
@@ -45,30 +51,97 @@ impl Term {
         out
     }
 
-    pub fn collapse_delta(&self, delta: &KDelta) -> Term {
-        let mut new_ips = Vec::new();
-        for ip in &self.ips {
-            new_ips.push(ip.collapse_delta(delta));
+    pub fn collapse_delta(&mut self, delta: &KDelta) {
+        for ip in &mut self.ips {
+            ip.collapse_delta(delta);
         }
-        Term { ips: new_ips }
     }
 
 
-    pub fn reduce(&self) -> Term {
-        let mut new_term = Term { ips: self.ips.clone() };
-        while let Some(next_delta) = new_term.get_delta_index() {
-            new_term = self.collapse_delta(&next_delta);
+    pub fn collapse_all_deltas(&mut self) {
+        while let Some(next_delta) = self.get_next_delta() {
+            self.collapse_delta(&next_delta);
         }
-        new_term 
     }
 
-    fn get_delta_index(&self) -> Option<KDelta> {
+    fn get_next_delta(&self) -> Option<KDelta> {
         for ip in &self.ips {
-            if let Some(delta) = ip.delta.clone() {
-                return Some(delta);
+            match ip.get_delta() {
+                Some(delta) => return Some(delta),
+                None => {},
             }
         }
         None
+    }
+
+    fn get_alpha_count(&self, alpha: char) -> Vec<usize> {
+        let mut count: Vec<usize> = Vec::new();
+        for ip in &self.ips {    
+            let mut counts = 0;
+            for gen in ip.get_inner() {
+                if gen.get_type() == alpha {
+                    counts += 1
+                }
+            }
+            count.push(counts);
+        }
+        count
+    }
+
+    pub fn alpha_reduce(&mut self, alpha: char) -> Vec<Term> {
+        let inner_count = self.get_alpha_count(alpha);
+        if inner_count.iter().sum::<usize>() == 2 {
+            
+            // if there are 2 inners, either they are on the same InnerProduct or they are split
+            if let Some(max_value) = inner_count.iter().max() {
+                if *max_value == 2 {
+                    // They are both on the same InnerProduct
+                    let index = inner_count.iter().position( |&x| x == 2 ).unwrap();
+                    self.ips[index].clear_inner_alpha(alpha);
+                    self.ips[index] *= -2.0;
+
+                    // duplicate self, change ips at index to new_ip
+                    vec![self.duplicate()]
+                }
+                else {
+                    // They are split across multiple InnerProducts
+                    let mut alpha_indices = Vec::new(); 
+                    let mut other_indices = Vec::new();
+                    for (i, x) in inner_count.iter().enumerate() {
+                        if *x == 1 {
+                            alpha_indices.push(i);
+                        } else {
+                            other_indices.push(i);
+                        }
+                    }
+
+                    let mut other_ips = Vec::new();
+                    for index in other_indices {
+                        other_ips.push(self.ips[index].clone())
+                    }
+                    let other_term = Term { ips: other_ips };
+
+                    // indices should have 2 
+                    let ip1 = &self.ips[alpha_indices[0]];
+                    let ip2 = &self.ips[alpha_indices[1]];
+
+                    let (term1, term2) = ip1.collapse_alpha(ip2, alpha);
+
+                    let mut out = Vec::new();
+                    out.push(other_term.duplicate() * term1);
+                    out.push(other_term * term2);
+                    out
+                }
+            }
+            else {
+                // Should not be possible to ever reach
+                unreachable!("max is only called if the sum == 2 => there must be a max");
+            }
+        }
+        else { 
+            // if there are not 2 'inners' of the same type this does nothing. 
+            vec![self.duplicate()] 
+        }
     }
 }
 
@@ -79,6 +152,18 @@ impl Mul<InnerProduct> for Term {
     fn mul(self, rhs: InnerProduct) -> Term {
         let mut ips = self.ips;
         ips.push(rhs);
+        Term::new(ips)
+    }
+}
+
+impl Mul<Term> for Term {
+    type Output = Term;
+
+    fn mul(self, rhs: Term) -> Term {
+        let mut ips = self.ips;
+        for new_ip in rhs.get_ips() {
+            ips.push(new_ip);
+        }
         Term::new(ips)
     }
 }
