@@ -68,6 +68,30 @@ impl Term {
         lapp
     }
 
+    pub fn gradiant_product(
+        &self,
+        other: Term,
+        partial_index_type: char,
+        alpha_type: char,
+    ) -> Vec<Term> {
+        let mut gp = Vec::new();
+        let mut t1 = self.clone();
+        let mut t2 = other;
+        for mut d_t1 in t1.partial(partial_index_type, alpha_type) {
+            d_t1.collapse_all_deltas();
+            for mut d_t2 in t2.partial(partial_index_type, alpha_type) {
+                d_t2.collapse_all_deltas();
+                let mut out = d_t1.clone() * d_t2;
+                for mut term in out.alpha_reduce(alpha_type) {
+                    term.remove_constants();
+                    term.shift_down();
+                    gp.push(term);
+                }
+            }
+        }
+        gp
+    }
+
     pub fn collapse_delta(&mut self, delta: &KDelta) {
         for ip in &mut self.ips {
             ip.collapse_delta(delta);
@@ -82,10 +106,9 @@ impl Term {
 
     fn get_next_delta(&self) -> Option<KDelta> {
         for ip in &self.ips {
-            match ip.get_delta() {
-                Some(delta) => return Some(delta),
-                None => {}
-            }
+            if let Some(delta) = ip.get_delta() {
+                return Some(delta);
+            };
         }
         None
     }
@@ -140,11 +163,7 @@ impl Term {
                     let ip2 = &self.ips[alpha_indices[1]];
 
                     let (term1, term2) = ip1.collapse_alpha(ip2, alpha);
-
-                    let mut out = Vec::new();
-                    out.push(other_term.duplicate() * term1);
-                    out.push(other_term * term2);
-                    out
+                    vec![other_term.duplicate() * term1, other_term * term2]
                 }
             } else {
                 // Should not be possible to ever reach
@@ -154,6 +173,57 @@ impl Term {
             // if there are not 2 'inners' of the same type this does nothing.
             vec![self.duplicate()]
         }
+    }
+
+    pub fn remove_constants(&mut self) {
+        let mut accum: f64 = 1.0;
+        self.scalar_reduce();
+        let mut out = Vec::new();
+        for ip in &self.ips {
+            if !ip.is_constant() {
+                out.push(ip.clone());
+            } else {
+                accum *= ip.get_scalar();
+            }
+        }
+        if !out.is_empty() {
+            out[0] *= accum;
+        }
+        self.ips = out;
+    }
+
+    pub fn shift_down(&mut self) {
+        let ips_len = self.get_ips().len();
+        for i in 0..ips_len {
+            let shifts_to_do = self.ips[i].get_bra().get_neg_shifts();
+            for (shift, index) in shifts_to_do {
+                self.do_shift(shift, index);
+            }
+            let shifts_to_do = self.ips[i].get_ket().get_neg_shifts();
+            for (shift, index) in shifts_to_do {
+                self.do_shift(shift, index);
+            }
+        }
+    }
+
+    fn do_shift(&mut self, shift_amount: i8, index: usize) {
+        let mut new_ips = Vec::new();
+        let mut current_ips = self.get_ips();
+        for ip in current_ips.iter_mut() {
+            ip.do_shift(shift_amount, index);
+            new_ips.push(ip.clone());
+        }
+        self.ips = new_ips;
+    }
+
+    pub fn sort_ips(&mut self) {
+        let mut new_ips = Vec::new();
+        for mut ip in self.get_ips() {
+            ip.order_bra_kets();
+            new_ips.push(ip);
+        }
+        new_ips.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        self.ips = new_ips;
     }
 }
 
@@ -207,7 +277,7 @@ impl Add<Term> for Term {
 
     fn add(self, rhs: Term) -> Vec<Term> {
         if self == rhs {
-            let mut cl = rhs.clone();
+            let mut cl = rhs;
             cl.scalar_reduce();
             let scalar = cl.get_ips()[0].extract_scalar();
             vec![self * scalar]

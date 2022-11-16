@@ -41,7 +41,39 @@ fn main() {
 
     let mut new_term = Term::new(vec![basic_ip, basic_ip2]);
     let lapp = new_term.lapalacian('x', 'a');
-    for t in lapp {
+    for mut t in lapp {
+        t.sort_ips();
         println!("{}", t);
+    }
+
+    println!("\n\n\n\n\nDoing Gradiant Product Test\n");
+
+    let bk1 = BraKet::new('l', 'y', vec![0, 0]);
+    let bk2 = BraKet::new('l', 'y', vec![1, 0]);
+    let bk3 = BraKet::new('l', 'y', vec![0, 1]);
+
+    let ip1 = InnerProduct::new(1.0, bk1.clone(), vec![], bk2.clone(), None);
+    let ip2 = InnerProduct::new(1.0, bk1.clone(), vec![], bk3.clone(), None);
+
+    let t1 = Term::new(vec![ip1]);
+    let t2 = Term::new(vec![ip2]);
+
+    for mut t in t1.gradiant_product(t2, 'x', 'a') {
+        t.sort_ips();
+        println!("{}", t);
+    }
+
+    println!("\n\n\n\n\n Doing shift_down test: \n");
+
+    let bk4 = BraKet::new('l', 'y', vec![0, -1]);
+    let bk5 = BraKet::new('l', 'y', vec![-1, -2]);
+    let ip3 = InnerProduct::new(1.0, bk4, vec![], bk5, None);
+    let mut t3 = Term::new(vec![ip3]);
+    println!("{}", t3);
+    t3.shift_down();
+    println!("{}", t3);
+    if let Some(mut new_ip) = t3.get_ips().pop() {
+        new_ip.order_bra_kets();
+        println!("{}", new_ip);
     }
 }
