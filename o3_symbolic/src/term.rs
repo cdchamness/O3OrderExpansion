@@ -4,7 +4,7 @@ use std::ops::{Add, Mul};
 use crate::inner_product::*;
 use crate::kdelta::*;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct Term {
     ips: Vec<InnerProduct>,
 }
@@ -12,6 +12,16 @@ pub struct Term {
 impl Term {
     pub fn new(ips: Vec<InnerProduct>) -> Term {
         Term { ips }
+    }
+
+    pub fn get_scalar_val(&mut self) -> f64 {
+        self.scalar_reduce();
+        self.ips[0].get_scalar()
+    }
+
+    pub fn set_scalar(&mut self, value: f64) {
+        self.scalar_reduce();
+        self.ips[0].set_scalar(value);
     }
 
     pub fn scalar_reduce(&mut self) {
@@ -24,6 +34,10 @@ impl Term {
 
     pub fn get_ips(&self) -> Vec<InnerProduct> {
         self.ips.clone()
+    }
+
+    pub fn get_shift_index_len(&self) -> usize {
+        self.ips[0].get_bra().get_shift().len()
     }
 
     pub fn duplicate(&self) -> Term {
@@ -49,7 +63,7 @@ impl Term {
         out
     }
 
-    pub fn lapalacian(&mut self, partial_index_type: char, alpha_type: char) -> Vec<Term> {
+    pub fn lappalacian(&mut self, partial_index_type: char, alpha_type: char) -> Vec<Term> {
         let mut lapp = Vec::new();
         let d_terms = self.partial(partial_index_type, alpha_type);
         for mut dt in d_terms {
@@ -59,9 +73,9 @@ impl Term {
                 ddt.scalar_reduce();
                 ddt.collapse_all_deltas();
                 let out = ddt.alpha_reduce(alpha_type);
-                for mut t in out {
-                    t.scalar_reduce();
-                    lapp.push(t);
+                for mut term in out {
+                    term.reduce();
+                    self.add_term_to_vec(term, &mut lapp);
                 }
             }
         }
@@ -83,13 +97,52 @@ impl Term {
                 d_t2.collapse_all_deltas();
                 let mut out = d_t1.clone() * d_t2;
                 for mut term in out.alpha_reduce(alpha_type) {
-                    term.remove_constants();
-                    term.shift_down();
-                    gp.push(term);
+                    term.reduce();
+                    self.add_term_to_vec(term, &mut gp);
+                    //gp.push(term);
                 }
             }
         }
         gp
+    }
+
+    fn add_term_to_vec(&self, term: Term, v: &mut Vec<Term>) {
+        // updates v to include term
+        let mut counter = 0;
+        while counter < v.len() {
+            let mut current_parity = vec![false; term.get_shift_index_len()];
+            if let Some(t) = v.pop() {
+                // grabs last element out of v
+                loop { // start parity loop
+
+                    // make term have same parity as 'current_partiy'
+                    let mut term_cl = term.clone();
+                    term_cl.parity_reduce(current_parity.clone());
+                    println!("{:?}", current_parity);
+
+                    // checks if it is the same class of term
+                    if t == term_cl {
+                        // if it is, add their sum to v, exit the function
+                        v.extend(t+term_cl);
+                        return ;
+
+                    } else {
+                        // if it isn't, update pairty type and continue loop
+                        current_parity = Self::get_next_parity(current_parity);
+                    }
+
+                    // if parity has completely cycled, this term's class isnt in v
+                    // => we update the counter, return t into v at front, and break parity loop
+                    if current_parity == vec![false; term.get_shift_index_len()] {
+                        counter += 1;
+                        v.insert(0, t);
+                        break;
+                    }
+                }
+                
+            }
+        }
+        v.push(term);
     }
 
     pub fn collapse_delta(&mut self, delta: &KDelta) {
@@ -175,9 +228,15 @@ impl Term {
         }
     }
 
+    pub fn reduce(&mut self) {
+        self.scalar_reduce();
+        self.remove_constants();
+        self.shift_down();
+        self.sort_ips();
+    }
+
     pub fn remove_constants(&mut self) {
         let mut accum: f64 = 1.0;
-        self.scalar_reduce();
         let mut out = Vec::new();
         for ip in &self.ips {
             if !ip.is_constant() {
@@ -216,6 +275,21 @@ impl Term {
         self.ips = new_ips;
     }
 
+    pub fn get_total_shifts_by_index(&self) -> Vec<i8> {
+        let mut v: Vec<i8> = vec![0; self.get_shift_index_len()];
+        for ip in &self.ips {
+            let bra_shift = ip.get_bra().get_shift();
+            for (i, b) in bra_shift.iter().enumerate() {
+                v[i] += b;
+            }
+            let ket_shift = ip.get_ket().get_shift();
+            for (i, k) in ket_shift.iter().enumerate() {
+                v[i] += k;
+            }
+        }
+        v
+    }
+
     pub fn sort_ips(&mut self) {
         let mut new_ips = Vec::new();
         for mut ip in self.get_ips() {
@@ -224,6 +298,36 @@ impl Term {
         }
         new_ips.sort_by(|a, b| a.partial_cmp(b).unwrap());
         self.ips = new_ips;
+    }
+
+    pub fn parity_reduce(&mut self, parities: Vec<bool>) {
+        for (index, val) in parities.iter().enumerate() {
+            if *val {
+                self.parity_transform(index);
+            }
+        }
+        self.scalar_reduce();
+        self.shift_down();
+        self.sort_ips();
+    }
+
+    pub fn parity_transform(&mut self, index: usize) {
+        for ip in self.ips.iter_mut() {
+            ip.parity_transform(index);
+        }
+    }
+
+    pub fn get_next_parity(current_parity: Vec<bool>) -> Vec<bool> {
+        let mut v = current_parity.clone();
+        for (i, p) in current_parity.iter().enumerate() {
+            if *p {
+                v[i] = false;
+            } else {
+                v[i] = true;
+                return v;
+            }
+        }
+        v
     }
 }
 
@@ -234,6 +338,24 @@ impl Mul<InnerProduct> for Term {
         let mut ips = self.ips;
         ips.push(rhs);
         Term::new(ips)
+    }
+}
+
+impl PartialEq for Term {
+    fn eq(&self, other: &Self) -> bool {
+        let my_len = self.ips.len();
+        let other_len = other.ips.len();
+        if my_len == other_len {
+            let mut counter = 0;
+            for i in 0..my_len {
+                if self.ips[i] == other.ips[i] {
+                    counter += 1;
+                }
+            }
+            counter == my_len // only true if ips are exactly the same (except scalar)
+        } else {
+            false
+        }
     }
 }
 
@@ -277,12 +399,42 @@ impl Add<Term> for Term {
 
     fn add(self, rhs: Term) -> Vec<Term> {
         if self == rhs {
-            let mut cl = rhs;
-            cl.scalar_reduce();
-            let scalar = cl.get_ips()[0].extract_scalar();
-            vec![self * scalar]
+            let mut cl = self.clone();
+            let mut rhs_cl = rhs.clone();
+            let self_scalar = cl.get_scalar_val();
+            let other_scalar = rhs_cl.get_scalar_val();
+            cl.set_scalar(self_scalar + other_scalar);
+            vec![cl]
         } else {
             vec![self, rhs]
         }
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+
+    use crate::term::Term;
+
+    #[test]
+    fn next_parity1() {
+        let v = vec![false, false, false];
+        let p = Term::get_next_parity(v);
+        assert_eq!(p, vec![true, false, false])
+    }
+
+    #[test]
+    fn next_parity2() {
+        let v = vec![true, false, false];
+        let p = Term::get_next_parity(v);
+        assert_eq!(p, vec![false, true, false])
+    }
+
+    #[test]
+    fn next_parity3() {
+        let v = vec![false, true, false];
+        let p = Term::get_next_parity(v);
+        assert_eq!(p, vec![true, true, false])
     }
 }

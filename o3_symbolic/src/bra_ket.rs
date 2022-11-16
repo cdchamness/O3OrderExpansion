@@ -30,6 +30,10 @@ impl BraKet {
         my_str.to_string()
     }
 
+    pub fn get_shift(&self) -> Vec<i8> {
+    	self.shift.clone()
+    }
+
     pub fn partial(&self, partial_index_type: char) -> Option<KDelta> {
         if partial_index_type == self.index_type {
             let sum = self.shift.iter().fold(0, |acc, x| acc + x.abs());
@@ -82,6 +86,10 @@ impl BraKet {
 
     pub fn do_shift(&mut self, shift_amount: i8, index: usize) {
         self.shift[index] += shift_amount;
+    }
+
+    pub fn parity_transform(&mut self, index: usize) {
+    	self.shift[index] = - self.shift[index];
     }
 }
 

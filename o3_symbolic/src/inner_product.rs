@@ -21,7 +21,7 @@ impl Gen {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct InnerProduct {
     scalar: f64,
     bra: BraKet,
@@ -193,6 +193,18 @@ impl InnerProduct {
             self.switch_order();
         }
     }
+
+    pub fn parity_transform(&mut self, index: usize) {
+        self.bra.parity_transform(index);
+        self.ket.parity_transform(index);
+    }
+}
+
+impl PartialEq for InnerProduct {
+    fn eq(&self, other: &Self) -> bool {
+        // make sure all fields are equal (except for the scalar)
+        self.bra == other.bra && self.ket == other.ket && self.inner == other.inner && self.delta == other.delta 
+    }
 }
 
 impl PartialOrd for InnerProduct {
@@ -200,8 +212,8 @@ impl PartialOrd for InnerProduct {
         match self.bra.cmp(&other.bra) {
             Ordering::Equal => match self.ket.cmp(&other.ket) {
                 Ordering::Equal => Some(Ordering::Equal),
-                Ordering::Greater => Some(Ordering::Greater),
-                Ordering::Less => Some(Ordering::Less),
+                Ordering::Greater => Some(Ordering::Less),
+                Ordering::Less => Some(Ordering::Greater),
             },
             Ordering::Greater => Some(Ordering::Greater),
             Ordering::Less => Some(Ordering::Less),
