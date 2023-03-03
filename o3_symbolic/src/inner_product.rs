@@ -47,6 +47,18 @@ impl InnerProduct {
         }
     }
 
+    pub fn basic(len: usize) -> InnerProduct {
+        let mut k_vec = vec![0; len - 1];
+        k_vec.push(1);
+        InnerProduct {
+            scalar: 1.0,
+            bra: BraKet::new('l', 'y', vec![0; len]),
+            inner: vec![],
+            ket: BraKet::new('l', 'y', k_vec),
+            delta: None,
+        }
+    }
+
     pub fn get_scalar(&self) -> f64 {
         self.scalar
     }
@@ -89,6 +101,11 @@ impl InnerProduct {
 
     pub fn add_to_inner(&mut self, gen: Gen) {
         self.inner.push(gen);
+    }
+
+    pub fn extend_shift_len(&mut self) {
+        self.bra.extend_shift_len();
+        self.ket.extend_shift_len();
     }
 
     pub fn partial(&self, partial_index_type: char, alpha_type: char) -> Vec<InnerProduct> {
@@ -203,7 +220,10 @@ impl InnerProduct {
 impl PartialEq for InnerProduct {
     fn eq(&self, other: &Self) -> bool {
         // make sure all fields are equal (except for the scalar)
-        self.bra == other.bra && self.ket == other.ket && self.inner == other.inner && self.delta == other.delta 
+        self.bra == other.bra
+            && self.ket == other.ket
+            && self.inner == other.inner
+            && self.delta == other.delta
     }
 }
 
@@ -224,9 +244,6 @@ impl PartialOrd for InnerProduct {
 impl fmt::Display for InnerProduct {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut my_str = "".to_string();
-        if self.scalar != 1.0 {
-            my_str += &self.scalar.to_string();
-        }
         my_str += "<";
         my_str += &self.bra.get_string();
         my_str += "|";

@@ -14,8 +14,8 @@ impl Term {
         Term { ips }
     }
 
-    pub fn get_scalar_val(&mut self) -> f64 {
-        self.scalar_reduce();
+    pub fn get_scalar_val(&self) -> f64 {
+        //self.scalar_reduce();
         self.ips[0].get_scalar()
     }
 
@@ -27,7 +27,7 @@ impl Term {
     pub fn scalar_reduce(&mut self) {
         let mut accum = 1.0;
         for ip in &mut self.ips {
-            accum *= ip.extract_scalar();
+            accum *= ip.extract_scalar(); //returns scalar for ip and sets its own scalar to 1.0
         }
         self.ips[0] *= accum
     }
@@ -38,6 +38,12 @@ impl Term {
 
     pub fn get_shift_index_len(&self) -> usize {
         self.ips[0].get_bra().get_shift().len()
+    }
+
+    pub fn extend_shift_len(&mut self) {
+        for ip in &mut self.ips {
+            ip.extend_shift_len();
+        }
     }
 
     pub fn duplicate(&self) -> Term {
@@ -75,7 +81,7 @@ impl Term {
                 let out = ddt.alpha_reduce(alpha_type);
                 for mut term in out {
                     term.reduce();
-                    self.add_term_to_vec(term, &mut lapp);
+                    term.add_term_to_vec(&mut lapp);
                 }
             }
         }
@@ -98,7 +104,7 @@ impl Term {
                 let mut out = d_t1.clone() * d_t2;
                 for mut term in out.alpha_reduce(alpha_type) {
                     term.reduce();
-                    self.add_term_to_vec(term, &mut gp);
+                    term.add_term_to_vec(&mut gp);
                     //gp.push(term);
                 }
             }
@@ -106,26 +112,25 @@ impl Term {
         gp
     }
 
-    fn add_term_to_vec(&self, term: Term, v: &mut Vec<Term>) {
+    pub fn add_term_to_vec(&self, v: &mut Vec<Term>) {
         // updates v to include term
         let mut counter = 0;
         while counter < v.len() {
-            let mut current_parity = vec![false; term.get_shift_index_len()];
+            let mut current_parity = vec![false; self.get_shift_index_len()];
             if let Some(t) = v.pop() {
                 // grabs last element out of v
-                loop { // start parity loop
+                loop {
+                    // start parity loop
 
                     // make term have same parity as 'current_partiy'
-                    let mut term_cl = term.clone();
+                    let mut term_cl = self.clone();
                     term_cl.parity_reduce(current_parity.clone());
-                    println!("{:?}", current_parity);
 
                     // checks if it is the same class of term
-                    if t == term_cl {
+                    if let Some(res) = t.clone() + self.clone() {
                         // if it is, add their sum to v, exit the function
-                        v.extend(t+term_cl);
-                        return ;
-
+                        v.push(res);
+                        return;
                     } else {
                         // if it isn't, update pairty type and continue loop
                         current_parity = Self::get_next_parity(current_parity);
@@ -133,16 +138,15 @@ impl Term {
 
                     // if parity has completely cycled, this term's class isnt in v
                     // => we update the counter, return t into v at front, and break parity loop
-                    if current_parity == vec![false; term.get_shift_index_len()] {
+                    if current_parity == vec![false; self.get_shift_index_len()] {
                         counter += 1;
                         v.insert(0, t);
                         break;
                     }
                 }
-                
             }
         }
-        v.push(term);
+        v.push(self.clone());
     }
 
     pub fn collapse_delta(&mut self, delta: &KDelta) {
@@ -229,10 +233,10 @@ impl Term {
     }
 
     pub fn reduce(&mut self) {
-        self.scalar_reduce();
         self.remove_constants();
         self.shift_down();
         self.sort_ips();
+        self.scalar_reduce();
     }
 
     pub fn remove_constants(&mut self) {
@@ -306,9 +310,7 @@ impl Term {
                 self.parity_transform(index);
             }
         }
-        self.scalar_reduce();
-        self.shift_down();
-        self.sort_ips();
+        self.reduce();
     }
 
     pub fn parity_transform(&mut self, index: usize) {
@@ -385,7 +387,7 @@ impl Mul<Term> for Term {
 
 impl fmt::Display for Term {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mut disp_string = "".to_string();
+        let mut disp_string = self.get_scalar_val().clone().to_string();
         for ip in &self.ips {
             disp_string += &ip.to_string();
         }
@@ -395,27 +397,27 @@ impl fmt::Display for Term {
 }
 
 impl Add<Term> for Term {
-    type Output = Vec<Term>;
+    type Output = Option<Term>;
 
-    fn add(self, rhs: Term) -> Vec<Term> {
+    fn add(self, rhs: Term) -> Option<Term> {
         if self == rhs {
             let mut cl = self.clone();
             let mut rhs_cl = rhs.clone();
             let self_scalar = cl.get_scalar_val();
             let other_scalar = rhs_cl.get_scalar_val();
             cl.set_scalar(self_scalar + other_scalar);
-            vec![cl]
+            cl.reduce();
+            Some(cl)
         } else {
-            vec![self, rhs]
+            None
         }
     }
 }
 
-
 #[cfg(test)]
 mod tests {
 
-    use crate::term::Term;
+    use crate::{bra_ket::BraKet, inner_product::InnerProduct, term::Term};
 
     #[test]
     fn next_parity1() {
@@ -436,5 +438,67 @@ mod tests {
         let v = vec![false, true, false];
         let p = Term::get_next_parity(v);
         assert_eq!(p, vec![true, true, false])
+    }
+
+    #[test]
+    fn test_extend_shift() {
+        let mut t = Term::new(vec![InnerProduct::new(
+            1.0,
+            BraKet::new('l', 'x', vec![0]),
+            vec![],
+            BraKet::new('l', 'x', vec![1]),
+            None,
+        )]);
+        t.extend_shift_len();
+        assert_eq!(
+            t,
+            Term::new(vec![InnerProduct::new(
+                1.0,
+                BraKet::new('l', 'x', vec![0, 0]),
+                vec![],
+                BraKet::new('l', 'x', vec![1, 0]),
+                None
+            )])
+        );
+    }
+
+    #[test]
+    fn test_extend_shift2() {
+        let mut t = Term::new(vec![
+            InnerProduct::new(
+                1.0,
+                BraKet::new('l', 'x', vec![0]),
+                vec![],
+                BraKet::new('l', 'x', vec![1]),
+                None,
+            ),
+            InnerProduct::new(
+                1.0,
+                BraKet::new('l', 'x', vec![1]),
+                vec![],
+                BraKet::new('l', 'x', vec![2]),
+                None,
+            ),
+        ]);
+        t.extend_shift_len();
+        assert_eq!(
+            t,
+            Term::new(vec![
+                InnerProduct::new(
+                    1.0,
+                    BraKet::new('l', 'x', vec![0, 0]),
+                    vec![],
+                    BraKet::new('l', 'x', vec![1, 0]),
+                    None
+                ),
+                InnerProduct::new(
+                    1.0,
+                    BraKet::new('l', 'x', vec![1, 0]),
+                    vec![],
+                    BraKet::new('l', 'x', vec![2, 0]),
+                    None,
+                )
+            ])
+        );
     }
 }

@@ -31,7 +31,11 @@ impl BraKet {
     }
 
     pub fn get_shift(&self) -> Vec<i8> {
-    	self.shift.clone()
+        self.shift.clone()
+    }
+
+    pub fn extend_shift_len(&mut self) {
+        self.shift.push(0);
     }
 
     pub fn partial(&self, partial_index_type: char) -> Option<KDelta> {
@@ -89,7 +93,7 @@ impl BraKet {
     }
 
     pub fn parity_transform(&mut self, index: usize) {
-    	self.shift[index] = - self.shift[index];
+        self.shift[index] = -self.shift[index];
     }
 }
 
