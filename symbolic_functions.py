@@ -77,9 +77,10 @@ def ReduceTermList(TermList):
             raise(ValueError("ReduceTermList Error"))
     return list(TermList)
 
+
 def NextOrderGP(CurrentOrderGPList):
     GPTerms = []
-    # Extend every IP in every Term for the new mu-type sum 
+    # Extend every IP in every Term for the new mu-type sum
     for T in CurrentOrderGPList:
         Tcp = T.copy()
         for IP in Tcp.IPList:

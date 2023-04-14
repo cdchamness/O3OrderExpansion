@@ -4,7 +4,6 @@ from O3_symbolic import InnerProduct, Term
 import symbolic_functions as sf
 
 
-
 def makeTermFromString(TermString):
     IPList = []
     IP_strings = TermString.split("><")
@@ -19,7 +18,7 @@ def makeTermFromString(TermString):
         if i ==len(IP_strings) - 1:
             #last IP will have a trailing < we need to remove
             currentIP = currentIP[:-1]
-        
+
         IP_split = currentIP.split("|")
         if len(IP_split) == 2:
             bra_str = IP_split[0]
@@ -31,7 +30,7 @@ def makeTermFromString(TermString):
             ket_str = IP_split[2]
         else:
             print(TermString, "is not a valid Term string")
-            return None 
+            return None
 
         cBra = getShiftsFromStr(bra_str)
         cKet = getShiftsFromStr(ket_str)
@@ -67,9 +66,10 @@ def getExpansionValues(SFlow, lattice, time, beta):
     for OrderFlow in SFlow:
         for term in OrderFlow:
             F += orderCoef * getTermValue(term, lattice)
-        orderCoef *= beta*time
-    
-    return F 
+        orderCoef *= beta * time
+
+    return F
+
 
 def RK4(SFlow, lattice, time, dt, beta, LappTerms=None):
     L = 0
@@ -130,6 +130,7 @@ def getLappTerms(Soln, partialIndexType="x", tIndex="a"):
         LappList.append(orderList)
     return LappList
 
+
 def copyTermList(termList):
     outList = []
     for OrderList in termList:
@@ -138,6 +139,7 @@ def copyTermList(termList):
             newOrderList.append(term.copy())
         outList.append(newOrderList)
     return outList
+
 
 def setTermsIndexType(termList, newIndexType):
     for OrderList in termList:
@@ -148,17 +150,17 @@ def setTermsIndexType(termList, newIndexType):
 def main():
     import ProgressBar as pb
 
-    LatSize = 16 
+    LatSize = 16
 
     np.random.seed(222)
     lattice = np.random.normal(0, 1., [LatSize, 3])
 
     # normalize the spins
-    inorm = 1/np.sqrt(np.einsum('ij,ij->i',lattice,lattice))
-    lattice = lattice*inorm[:,None]
+    inorm = 1 / np.sqrt(np.einsum('ij,ij->i', lattice, lattice))
+    lattice = lattice * inorm[:, None]
 
     print(lattice)
-    print(np.einsum("ij,ij->i",lattice, lattice))
+    print(np.einsum("ij,ij->i", lattice, lattice))
 
     Order0 = ["0.125<y,__|y,+1>"]
     Order1 = ["0.05<y,__,__|y,+1,+1>", "-0.025<y,+1,__|y,__,__><y,__,__|y,__,+1>", "0.00416667<y,__|y,+1><y,__|y,+1>"]
@@ -177,7 +179,7 @@ def main():
     steps = [1, 10, 100, 1000, 10_000, 100_000, 1_000_000]
     lats, lapps = [], []
     for step in steps:
-        dt = 1.0/step
+        dt = 1.0 / step
         clattice = np.array(lattice)
         times = np.arange(0.0, 1.0, dt)
         lapp = 0
@@ -193,8 +195,8 @@ def main():
         lapps.append(lapp)
 
     for i in range(1, len(lats)):
-        print("\n{} - {}:\nlattice:\n".format(steps[i],steps[i-1]), lats[i]-lats[i-1])
-        print("Laplacian:", lapps[i]-lapps[i-1])
+        print("\n{} - {}:\nlattice:\n".format(steps[i], steps[i - 1]), lats[i] - lats[i - 1])
+        print("Laplacian:", lapps[i] - lapps[i - 1])
 
     #'''
     '''
@@ -218,6 +220,7 @@ def main():
 
     print(rk4Lat-fLat)
     '''
+
 
 if __name__ == "__main__":
     main()
