@@ -4,7 +4,7 @@ use std::ops::{Add, Mul};
 use crate::inner_product::*;
 use crate::kdelta::*;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, Hash)]
 pub struct Term {
     ips: Vec<InnerProduct>,
 }
@@ -46,6 +46,12 @@ impl Term {
         }
     }
 
+    pub fn set_lattice_type(&mut self, new_lattice_type: char) {
+        for ip in &mut self.ips {
+            ip.set_lattice_type(new_lattice_type);
+        }
+    }
+
     pub fn duplicate(&self) -> Term {
         let mut ips = Vec::new();
         for ip in &self.ips {
@@ -80,8 +86,9 @@ impl Term {
                 ddt.collapse_all_deltas();
                 let out = ddt.alpha_reduce(alpha_type);
                 for mut term in out {
-                    term.reduce();
-                    term.add_term_to_vec(&mut lapp);
+                    if let Some(_) = term.reduce() {
+                        term.add_term_to_vec(&mut lapp);
+                    }
                 }
             }
         }
@@ -103,9 +110,9 @@ impl Term {
                 d_t2.collapse_all_deltas();
                 let mut out = d_t1.clone() * d_t2;
                 for mut term in out.alpha_reduce(alpha_type) {
-                    term.reduce();
-                    term.add_term_to_vec(&mut gp);
-                    //gp.push(term);
+                    if let Some(_) = term.reduce() {
+                        term.add_term_to_vec(&mut gp);
+                    }
                 }
             }
         }
@@ -232,14 +239,18 @@ impl Term {
         }
     }
 
-    pub fn reduce(&mut self) {
-        self.remove_constants();
-        self.shift_down();
-        self.sort_ips();
-        self.scalar_reduce();
+    pub fn reduce(&mut self) -> Option<()> {
+        if let Some(_) = self.remove_constants() {
+            self.shift_down();
+            self.sort_ips();
+            self.scalar_reduce();
+            Some(())
+        } else {
+            None
+        }
     }
 
-    pub fn remove_constants(&mut self) {
+    pub fn remove_constants(&mut self) -> Option<()> {
         let mut accum: f64 = 1.0;
         let mut out = Vec::new();
         for ip in &self.ips {
@@ -251,8 +262,11 @@ impl Term {
         }
         if !out.is_empty() {
             out[0] *= accum;
+        } else {
+            return None;
         }
         self.ips = out;
+        Some(())
     }
 
     pub fn shift_down(&mut self) {
@@ -373,6 +387,14 @@ impl Mul<f64> for Term {
     }
 }
 
+impl Mul<Term> for f64 {
+    type Output = Term;
+
+    fn mul(self, rhs: Term) -> Term {
+        rhs * self
+    }
+}
+
 impl Mul<Term> for Term {
     type Output = Term;
 
@@ -402,12 +424,15 @@ impl Add<Term> for Term {
     fn add(self, rhs: Term) -> Option<Term> {
         if self == rhs {
             let mut cl = self.clone();
-            let mut rhs_cl = rhs.clone();
+            let rhs_cl = rhs.clone();
             let self_scalar = cl.get_scalar_val();
             let other_scalar = rhs_cl.get_scalar_val();
             cl.set_scalar(self_scalar + other_scalar);
-            cl.reduce();
-            Some(cl)
+            if let Some(_) = cl.reduce() {
+                Some(cl)
+            } else {
+                None
+            }
         } else {
             None
         }

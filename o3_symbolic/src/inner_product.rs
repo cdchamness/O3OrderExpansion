@@ -6,7 +6,9 @@ use crate::bra_ket::*;
 use crate::kdelta::*;
 use crate::term::*;
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+use std::hash::{Hash, Hasher};
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Gen {
     alpha_type: char,
 }
@@ -108,6 +110,11 @@ impl InnerProduct {
         self.ket.extend_shift_len();
     }
 
+    pub fn set_lattice_type(&mut self, new_lattice_type: char) {
+        self.bra.set_lattice_type(new_lattice_type);
+        self.ket.set_lattice_type(new_lattice_type);
+    }
+
     pub fn partial(&self, partial_index_type: char, alpha_type: char) -> Vec<InnerProduct> {
         let mut out = Vec::new();
         if let Some(bra_kdelta) = self.bra.partial(partial_index_type) {
@@ -187,7 +194,7 @@ impl InnerProduct {
     }
 
     pub fn is_constant(&self) -> bool {
-        self.bra == self.ket && self.delta == None && self.inner.is_empty() && self.scalar == 1.0
+        self.bra == self.ket && self.delta == None && self.inner.is_empty() // && self.scalar == 1.0
     }
 
     fn switch_order(&mut self) {
@@ -224,6 +231,17 @@ impl PartialEq for InnerProduct {
             && self.ket == other.ket
             && self.inner == other.inner
             && self.delta == other.delta
+    }
+}
+
+impl Eq for InnerProduct {}
+
+impl Hash for InnerProduct {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.bra.hash(state);
+        self.ket.hash(state);
+        self.inner.hash(state);
+        self.delta.hash(state);
     }
 }
 

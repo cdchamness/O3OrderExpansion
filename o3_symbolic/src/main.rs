@@ -3,11 +3,11 @@ mod inner_product;
 mod kdelta;
 mod term;
 
-use std::collections::HashMap;
-
 use crate::bra_ket::*;
 use crate::inner_product::*;
 use crate::term::*;
+
+use std::collections::HashMap;
 
 pub fn get_next_gp_from_prev_order(previous_order: Vec<Term>) -> Vec<Term> {
     let mut out = Vec::new();
@@ -18,26 +18,60 @@ pub fn get_next_gp_from_prev_order(previous_order: Vec<Term>) -> Vec<Term> {
     let len = prev_order[0].get_shift_index_len();
     let new_term = Term::new(vec![InnerProduct::basic(len)]);
     for term in prev_order {
-        let gp = term.gradiant_product(new_term.clone(), 'y', 'a');
-        for t in &gp {
-            t.add_term_to_vec(&mut out);
+        let mut gp = term.gradiant_product(new_term.clone(), 'y', 'a');
+        for t in &mut gp {
+            if let Some(_) = t.reduce() {
+                t.add_term_to_vec(&mut out);
+            }
         }
     }
     out
 }
 
-pub fn get_closed_lapp_from_gp(grad_prod_result: Vec<Term>) -> Vec<Term> {
-    vec![]
+pub fn get_lapp_terms_from_gp(
+    grad_prod_result: Vec<Term>,
+    lapp_hash_map: &mut HashMap<Term, Vec<Term>>,
+) -> (Vec<Term>, &mut HashMap<Term, Vec<Term>>) {
+    let mut lapp = Vec::new();
+    for term in grad_prod_result {
+        let mut tc = term.clone();
+        tc.set_lattice_type('y');
+        let mut ddts = tc.lappalacian('x', 'a');
+        lapp_hash_map.insert(tc, ddts.clone());
+        for ddt in &mut ddts {
+            if let Some(_) = ddt.reduce() {
+                ddt.add_term_to_vec(&mut lapp)
+            }
+        }
+    }
+    for term in &mut lapp {
+        term.set_scalar(1.0)
+    }
+    (lapp, lapp_hash_map)
+}
+
+pub fn find_order_s(lapp_terms: Vec<Term>, grad_prod_result: Vec<Term>) -> Vec<Term> {
+    let mut out = Vec::new();
+    for l_term in lapp_terms {
+        let mut ltc = l_term.clone();
+        ltc.set_lattice_type('y');
+        let mut ddts = ltc.lappalacian('x', 'a');
+        for ddt in &mut ddts {
+            if let Some(_) = ddt.reduce() {}
+        }
+    }
+    out
 }
 
 pub fn get_next_order(previous_order: Vec<Term>) -> Vec<Term> {
     let gp = get_next_gp_from_prev_order(previous_order);
-    let lapp = get_closed_lapp_from_gp(gp);
-    vec![]
+    let (lapp, _) = get_lapp_terms_from_gp(gp, &mut HashMap::new());
+    lapp
 }
 
 fn main() {
-    let start_term = Term::new(vec![InnerProduct::basic(1)]);
+    let mut lapp_hash_map = HashMap::new();
+    let start_term = 0.5 * Term::new(vec![InnerProduct::basic(1)]);
     println!("0th order:\n{}", start_term);
     let start_order = vec![start_term];
     let next_gp = get_next_gp_from_prev_order(start_order);
@@ -45,6 +79,12 @@ fn main() {
     for term in &next_gp {
         println!("{}", term);
     }
+    println!("\n\nLapp Result:");
+    let (lapp, hm) = get_lapp_terms_from_gp(next_gp, &mut lapp_hash_map);
+    for term in &lapp {
+        println!("{}", term);
+    }
+    println!("{:?}", hm)
 }
 
 fn main2() {

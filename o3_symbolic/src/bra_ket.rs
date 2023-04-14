@@ -2,7 +2,7 @@ use crate::kdelta::*;
 use std::cmp::{Ord, Ordering, PartialOrd};
 use std::fmt;
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct BraKet {
     lattice_type: char,
     index_type: char,
@@ -36,6 +36,10 @@ impl BraKet {
 
     pub fn extend_shift_len(&mut self) {
         self.shift.push(0);
+    }
+
+    pub fn set_lattice_type(&mut self, new_lattice_type: char) {
+        self.lattice_type = new_lattice_type;
     }
 
     pub fn partial(&self, partial_index_type: char) -> Option<KDelta> {

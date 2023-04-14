@@ -1,6 +1,6 @@
 use std::fmt;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct KDelta {
     pub index_type_1: char,
     pub index_type_2: char,
@@ -8,19 +8,18 @@ pub struct KDelta {
 }
 
 impl KDelta {
-	pub fn new(index_type_1: char, index_type_2: char, shift: Vec<i8>) -> KDelta {
-		KDelta {
-			index_type_1,
-		    index_type_2,
-		    shift,
-		}
-	}
+    pub fn new(index_type_1: char, index_type_2: char, shift: Vec<i8>) -> KDelta {
+        KDelta {
+            index_type_1,
+            index_type_2,
+            shift,
+        }
+    }
 
-	pub fn get_last_non_zero_index(&self) -> Option<usize> {
-		Some(self.shift.len() - self.shift.iter().rev().position(|&r| r != 0)? - 1)
-	}
+    pub fn get_last_non_zero_index(&self) -> Option<usize> {
+        Some(self.shift.len() - self.shift.iter().rev().position(|&r| r != 0)? - 1)
+    }
 }
-
 
 impl fmt::Display for KDelta {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -30,10 +29,10 @@ impl fmt::Display for KDelta {
         my_str += &self.index_type_2.to_string();
         my_str += "_";
         for (i, shift) in self.shift.iter().enumerate() {
-        	if i != 0 {
-        		my_str += ",";
-        	}
-        	my_str += &shift.to_string();
+            if i != 0 {
+                my_str += ",";
+            }
+            my_str += &shift.to_string();
         }
         my_str += ")";
         write!(f, "{}", my_str)
