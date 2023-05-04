@@ -15,8 +15,11 @@ impl Term {
         Term { ips }
     }
 
+    pub fn extract_scalar(&mut self) -> OrderedFloat<f64> {
+        self.ips[0].extract_scalar()
+    }
+
     pub fn get_scalar_val(&self) -> OrderedFloat<f64> {
-        //self.scalar_reduce();
         self.ips[0].get_scalar()
     }
 
@@ -30,7 +33,7 @@ impl Term {
         for ip in &mut self.ips {
             accum *= ip.extract_scalar(); //returns scalar for ip and sets its own scalar to 1.0
         }
-        self.ips[0] *= accum.0
+        self.ips[0] *= accum
     }
 
     pub fn get_ips(&self) -> Vec<InnerProduct> {
@@ -134,7 +137,7 @@ impl Term {
                     let mut term_cl = self.clone();
                     term_cl.parity_reduce(current_parity.clone());
 
-                    // checks if it is the same class of term
+                    // Compares if terms are identicial up to a scalar
                     if let Some(res) = t.clone() + self.clone() {
                         // if it is, add their sum to v, exit the function
                         v.push(res);
@@ -154,6 +157,7 @@ impl Term {
                 }
             }
         }
+        // if we got through parity loop for every term in v, then the new term is different than all other elements => add new term
         v.push(self.clone());
     }
 
@@ -201,7 +205,7 @@ impl Term {
                     // They are both on the same InnerProduct
                     let index = inner_count.iter().position(|&x| x == 2).unwrap();
                     self.ips[index].clear_inner_alpha(alpha);
-                    self.ips[index] *= -2.0;
+                    self.ips[index] *= OrderedFloat(-2.0);
 
                     // duplicate self, change ips at index to new_ip
                     vec![self.duplicate()]
@@ -252,13 +256,13 @@ impl Term {
     }
 
     pub fn remove_constants(&mut self) -> Option<()> {
-        let mut accum: f64 = 1.0;
+        let mut accum = OrderedFloat(1.0);
         let mut out = Vec::new();
         for ip in &self.ips {
             if !ip.is_constant() {
                 out.push(ip.clone());
             } else {
-                accum *= ip.get_scalar().0;
+                accum *= ip.get_scalar();
             }
         }
         if !out.is_empty() {
@@ -376,10 +380,10 @@ impl PartialEq for Term {
     }
 }
 
-impl Mul<f64> for Term {
+impl Mul<OrderedFloat<f64>> for Term {
     type Output = Term;
 
-    fn mul(self, rhs: f64) -> Term {
+    fn mul(self, rhs: OrderedFloat<f64>) -> Term {
         let mut ips = self.ips;
         let mut front = ips.remove(0);
         front *= rhs;
@@ -388,7 +392,7 @@ impl Mul<f64> for Term {
     }
 }
 
-impl Mul<Term> for f64 {
+impl Mul<Term> for OrderedFloat<f64> {
     type Output = Term;
 
     fn mul(self, rhs: Term) -> Term {
@@ -423,12 +427,15 @@ impl Add<Term> for Term {
     type Output = Option<Term>;
 
     fn add(self, rhs: Term) -> Option<Term> {
-        if self == rhs {
-            let mut cl = self.clone();
-            let rhs_cl = rhs.clone();
-            let self_scalar = cl.get_scalar_val();
-            let other_scalar = rhs_cl.get_scalar_val();
-            cl.set_scalar(self_scalar + other_scalar);
+        // clone self and rhs and set clones scalars to 1.0
+        let mut cl = self.clone();
+        let mut rhs_cl = rhs.clone();
+        let self_scalar = cl.extract_scalar();
+        let rhs_scalar = rhs_cl.extract_scalar();
+
+        // both scalars should be set to 1.0 for the clones => the comparison should only consider the structure as the scalar components will match
+        if cl == rhs_cl {
+            cl.set_scalar(self_scalar + rhs_scalar);
             if let Some(_) = cl.reduce() {
                 Some(cl)
             } else {
@@ -455,9 +462,9 @@ mod tests {
 
     #[test]
     fn next_parity2() {
-        let v = vec![true, false, false];
+        let v = vec![true, true, false];
         let p = Term::get_next_parity(v);
-        assert_eq!(p, vec![false, true, false])
+        assert_eq!(p, vec![false, false, true])
     }
 
     #[test]

@@ -7,7 +7,7 @@ use crate::bra_ket::*;
 use crate::kdelta::*;
 use crate::term::*;
 
-use std::hash::{Hash, Hasher};
+use std::hash::Hash;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Gen {
@@ -282,8 +282,8 @@ impl fmt::Display for InnerProduct {
     }
 }
 
-impl MulAssign<f64> for InnerProduct {
-    fn mul_assign(&mut self, rhs: f64) {
+impl MulAssign<OrderedFloat<f64>> for InnerProduct {
+    fn mul_assign(&mut self, rhs: OrderedFloat<f64>) {
         self.scalar *= rhs;
     }
 }
