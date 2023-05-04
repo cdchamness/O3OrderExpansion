@@ -1,3 +1,4 @@
+use ordered_float::OrderedFloat;
 use std::cmp::{Ord, Ordering, PartialOrd};
 use std::fmt;
 use std::ops::{Mul, MulAssign};
@@ -23,9 +24,9 @@ impl Gen {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct InnerProduct {
-    scalar: f64,
+    scalar: OrderedFloat<f64>,
     bra: BraKet,
     inner: Vec<Gen>,
     ket: BraKet,
@@ -34,7 +35,7 @@ pub struct InnerProduct {
 
 impl InnerProduct {
     pub fn new(
-        scalar: f64,
+        scalar: OrderedFloat<f64>,
         bra: BraKet,
         inner: Vec<Gen>,
         ket: BraKet,
@@ -53,7 +54,7 @@ impl InnerProduct {
         let mut k_vec = vec![0; len - 1];
         k_vec.push(1);
         InnerProduct {
-            scalar: 1.0,
+            scalar: OrderedFloat(1.0),
             bra: BraKet::new('l', 'y', vec![0; len]),
             inner: vec![],
             ket: BraKet::new('l', 'y', k_vec),
@@ -61,7 +62,7 @@ impl InnerProduct {
         }
     }
 
-    pub fn get_scalar(&self) -> f64 {
+    pub fn get_scalar(&self) -> OrderedFloat<f64> {
         self.scalar
     }
 
@@ -81,13 +82,13 @@ impl InnerProduct {
         self.delta.clone()
     }
 
-    pub fn extract_scalar(&mut self) -> f64 {
+    pub fn extract_scalar(&mut self) -> OrderedFloat<f64> {
         let num = self.scalar;
-        self.scalar = 1.0;
+        self.scalar = OrderedFloat(1.0);
         num
     }
 
-    pub fn set_scalar(&mut self, num: f64) {
+    pub fn set_scalar(&mut self, num: OrderedFloat<f64>) {
         self.scalar = num;
     }
 
@@ -121,7 +122,7 @@ impl InnerProduct {
             let mut inside = self.inner.clone();
             inside.push(Gen { alpha_type });
             let new_ip = InnerProduct::new(
-                -1.0 * self.scalar,
+                OrderedFloat(-1.0) * self.scalar,
                 self.bra.clone(),
                 inside,
                 self.ket.clone(),
@@ -173,7 +174,7 @@ impl InnerProduct {
             ip2.get_delta(),
         );
         let new_ip3 = InnerProduct::new(
-            -1.0 * ip1.get_scalar(),
+            OrderedFloat(-1.0) * ip1.get_scalar(),
             ip1.get_bra(),
             ip1.get_inner(),
             ip2.get_ket(),
@@ -223,7 +224,7 @@ impl InnerProduct {
         self.ket.parity_transform(index);
     }
 }
-
+/*
 impl PartialEq for InnerProduct {
     fn eq(&self, other: &Self) -> bool {
         // make sure all fields are equal (except for the scalar)
@@ -244,7 +245,7 @@ impl Hash for InnerProduct {
         self.delta.hash(state);
     }
 }
-
+*/
 impl PartialOrd for InnerProduct {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         match self.bra.cmp(&other.bra) {
@@ -304,18 +305,18 @@ impl Mul<Term> for InnerProduct {
     }
 }
 
-impl Mul<f64> for InnerProduct {
+impl Mul<OrderedFloat<f64>> for InnerProduct {
     type Output = Self;
     // Returns a new InnerProduct with the scalar scaled by rhs
 
-    fn mul(self, rhs: f64) -> InnerProduct {
+    fn mul(self, rhs: OrderedFloat<f64>) -> InnerProduct {
         let mut dup = self;
         dup.scalar *= rhs;
         dup
     }
 }
 
-impl Mul<InnerProduct> for f64 {
+impl Mul<InnerProduct> for OrderedFloat<f64> {
     type Output = InnerProduct;
 
     // this implements left multiplication by scalar by calling the right multiplication
@@ -343,14 +344,14 @@ mod tests {
     #[test]
     fn collapse_alpha_1() {
         let ip1 = InnerProduct::new(
-            1.0,
+            OrderedFloat(1.0),
             BraKet::new('l', 'x', vec![1, 0, 0, 0]),
             vec![Gen::new('a')],
             BraKet::new('l', 'x', vec![0, 1, 0, 0]),
             None,
         );
         let ip2 = InnerProduct::new(
-            1.0,
+            OrderedFloat(1.0),
             BraKet::new('l', 'x', vec![0, 0, 1, 0]),
             vec![Gen::new('a')],
             BraKet::new('l', 'x', vec![0, 0, 0, 1]),
@@ -361,14 +362,14 @@ mod tests {
             t1,
             Term::new(vec![
                 InnerProduct::new(
-                    1.0,
+                    OrderedFloat(1.0),
                     BraKet::new('l', 'x', vec![1, 0, 0, 0]),
                     vec![],
                     BraKet::new('l', 'x', vec![0, 0, 1, 0]),
                     None
                 ),
                 InnerProduct::new(
-                    1.0,
+                    OrderedFloat(1.0),
                     BraKet::new('l', 'x', vec![0, 1, 0, 0]),
                     vec![],
                     BraKet::new('l', 'x', vec![0, 0, 0, 1]),
@@ -380,14 +381,14 @@ mod tests {
             t2,
             Term::new(vec![
                 InnerProduct::new(
-                    -1.0,
+                    OrderedFloat(-1.0),
                     BraKet::new('l', 'x', vec![1, 0, 0, 0]),
                     vec![],
                     BraKet::new('l', 'x', vec![0, 0, 0, 1]),
                     None
                 ),
                 InnerProduct::new(
-                    1.0,
+                    OrderedFloat(1.0),
                     BraKet::new('l', 'x', vec![0, 1, 0, 0]),
                     vec![],
                     BraKet::new('l', 'x', vec![0, 0, 1, 0]),
