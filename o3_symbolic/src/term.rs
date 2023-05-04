@@ -1,3 +1,4 @@
+use ordered_float::OrderedFloat;
 use std::fmt;
 use std::ops::{Add, Mul};
 
@@ -14,22 +15,22 @@ impl Term {
         Term { ips }
     }
 
-    pub fn get_scalar_val(&self) -> f64 {
+    pub fn get_scalar_val(&self) -> OrderedFloat<f64> {
         //self.scalar_reduce();
         self.ips[0].get_scalar()
     }
 
-    pub fn set_scalar(&mut self, value: f64) {
+    pub fn set_scalar(&mut self, value: OrderedFloat<f64>) {
         self.scalar_reduce();
         self.ips[0].set_scalar(value);
     }
 
     pub fn scalar_reduce(&mut self) {
-        let mut accum = 1.0;
+        let mut accum = OrderedFloat(1.0);
         for ip in &mut self.ips {
             accum *= ip.extract_scalar(); //returns scalar for ip and sets its own scalar to 1.0
         }
-        self.ips[0] *= accum
+        self.ips[0] *= accum.0
     }
 
     pub fn get_ips(&self) -> Vec<InnerProduct> {
@@ -257,7 +258,7 @@ impl Term {
             if !ip.is_constant() {
                 out.push(ip.clone());
             } else {
-                accum *= ip.get_scalar();
+                accum *= ip.get_scalar().0;
             }
         }
         if !out.is_empty() {
@@ -443,6 +444,7 @@ impl Add<Term> for Term {
 mod tests {
 
     use crate::{bra_ket::BraKet, inner_product::InnerProduct, term::Term};
+    use ordered_float::OrderedFloat;
 
     #[test]
     fn next_parity1() {
@@ -468,7 +470,7 @@ mod tests {
     #[test]
     fn test_extend_shift() {
         let mut t = Term::new(vec![InnerProduct::new(
-            1.0,
+            OrderedFloat(1.0),
             BraKet::new('l', 'x', vec![0]),
             vec![],
             BraKet::new('l', 'x', vec![1]),
@@ -478,7 +480,7 @@ mod tests {
         assert_eq!(
             t,
             Term::new(vec![InnerProduct::new(
-                1.0,
+                OrderedFloat(1.0),
                 BraKet::new('l', 'x', vec![0, 0]),
                 vec![],
                 BraKet::new('l', 'x', vec![1, 0]),
@@ -491,14 +493,14 @@ mod tests {
     fn test_extend_shift2() {
         let mut t = Term::new(vec![
             InnerProduct::new(
-                1.0,
+                OrderedFloat(1.0),
                 BraKet::new('l', 'x', vec![0]),
                 vec![],
                 BraKet::new('l', 'x', vec![1]),
                 None,
             ),
             InnerProduct::new(
-                1.0,
+                OrderedFloat(1.0),
                 BraKet::new('l', 'x', vec![1]),
                 vec![],
                 BraKet::new('l', 'x', vec![2]),
@@ -510,14 +512,14 @@ mod tests {
             t,
             Term::new(vec![
                 InnerProduct::new(
-                    1.0,
+                    OrderedFloat(1.0),
                     BraKet::new('l', 'x', vec![0, 0]),
                     vec![],
                     BraKet::new('l', 'x', vec![1, 0]),
                     None
                 ),
                 InnerProduct::new(
-                    1.0,
+                    OrderedFloat(1.0),
                     BraKet::new('l', 'x', vec![1, 0]),
                     vec![],
                     BraKet::new('l', 'x', vec![2, 0]),

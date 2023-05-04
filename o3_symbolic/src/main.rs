@@ -3,6 +3,8 @@ mod inner_product;
 mod kdelta;
 mod term;
 
+use ordered_float::OrderedFloat;
+
 use crate::bra_ket::*;
 use crate::inner_product::*;
 use crate::term::*;
@@ -45,7 +47,7 @@ pub fn get_lapp_terms_from_gp(
         }
     }
     for term in &mut lapp {
-        term.set_scalar(1.0)
+        term.set_scalar(OrderedFloat(1.0))
     }
     (lapp, lapp_hash_map)
 }
@@ -91,7 +93,7 @@ fn main2() {
     let basic_bra = BraKet::new('l', 'y', vec![0]);
     let basic_ket = BraKet::new('l', 'y', vec![1]);
 
-    let basic_ip = InnerProduct::new(1.0, basic_bra, Vec::new(), basic_ket, None);
+    let basic_ip = InnerProduct::new(OrderedFloat(1.0), basic_bra, Vec::new(), basic_ket, None);
 
     let mut new_term = Term::new(vec![basic_ip]);
     let lapp = new_term.lappalacian('x', 'a');
@@ -106,8 +108,8 @@ fn main2() {
     let bk2 = BraKet::new('l', 'y', vec![1, 0]);
     let bk3 = BraKet::new('l', 'y', vec![0, 1]);
 
-    let ip1 = InnerProduct::new(1.0, bk1.clone(), vec![], bk2.clone(), None);
-    let ip2 = InnerProduct::new(1.0, bk1.clone(), vec![], bk3.clone(), None);
+    let ip1 = InnerProduct::new(OrderedFloat(1.0), bk1.clone(), vec![], bk2.clone(), None);
+    let ip2 = InnerProduct::new(OrderedFloat(1.0), bk1.clone(), vec![], bk3.clone(), None);
 
     let t1 = Term::new(vec![ip1.clone()]);
     let t2 = Term::new(vec![ip2.clone()]);
@@ -143,7 +145,7 @@ fn main2() {
 
     let bk4 = BraKet::new('l', 'y', vec![0, -1]);
     let bk5 = BraKet::new('l', 'y', vec![-1, -2]);
-    let ip3 = InnerProduct::new(1.0, bk4, vec![], bk5, None);
+    let ip3 = InnerProduct::new(OrderedFloat(1.0), bk4, vec![], bk5, None);
     let mut t3 = Term::new(vec![ip3]);
     println!("{}", t3);
     t3.shift_down();
