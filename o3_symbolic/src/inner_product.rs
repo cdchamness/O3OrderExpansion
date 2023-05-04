@@ -116,6 +116,11 @@ impl InnerProduct {
         self.ket.set_lattice_type(new_lattice_type);
     }
 
+    pub fn set_index_type(&mut self, new_index_type: char) {
+        self.bra.set_index_type(new_index_type);
+        self.ket.set_index_type(new_index_type);
+    }
+
     pub fn partial(&self, partial_index_type: char, alpha_type: char) -> Vec<InnerProduct> {
         let mut out = Vec::new();
         if let Some(bra_kdelta) = self.bra.partial(partial_index_type) {
@@ -224,28 +229,7 @@ impl InnerProduct {
         self.ket.parity_transform(index);
     }
 }
-/*
-impl PartialEq for InnerProduct {
-    fn eq(&self, other: &Self) -> bool {
-        // make sure all fields are equal (except for the scalar)
-        self.bra == other.bra
-            && self.ket == other.ket
-            && self.inner == other.inner
-            && self.delta == other.delta
-    }
-}
 
-impl Eq for InnerProduct {}
-
-impl Hash for InnerProduct {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.bra.hash(state);
-        self.ket.hash(state);
-        self.inner.hash(state);
-        self.delta.hash(state);
-    }
-}
-*/
 impl PartialOrd for InnerProduct {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         match self.bra.cmp(&other.bra) {
@@ -396,5 +380,10 @@ mod tests {
                 )
             ])
         );
+    }
+
+    #[test]
+    fn partial_test() {
+        assert_eq!(1, 1);
     }
 }

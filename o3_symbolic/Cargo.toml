@@ -5,3 +5,4 @@ edition = "2021"
 
 [dependencies]
 ordered-float = "3.7.0"
+nalgebra = "0.32.2" # current latest version (May the 4th)

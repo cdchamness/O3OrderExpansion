@@ -42,6 +42,10 @@ impl BraKet {
         self.lattice_type = new_lattice_type;
     }
 
+    pub fn set_index_type(&mut self, new_index_type: char) {
+        self.index_type = new_index_type;
+    }
+
     pub fn partial(&self, partial_index_type: char) -> Option<KDelta> {
         if partial_index_type == self.index_type {
             let sum = self.shift.iter().fold(0, |acc, x| acc + x.abs());

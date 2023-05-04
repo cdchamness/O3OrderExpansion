@@ -56,6 +56,12 @@ impl Term {
         }
     }
 
+    pub fn set_index_type(&mut self, new_index_type: char) {
+        for ip in &mut self.ips {
+            ip.set_index_type(new_index_type);
+        }
+    }
+
     pub fn duplicate(&self) -> Term {
         let mut ips = Vec::new();
         for ip in &self.ips {
@@ -79,9 +85,10 @@ impl Term {
         out
     }
 
-    pub fn lappalacian(&mut self, partial_index_type: char, alpha_type: char) -> Vec<Term> {
-        let mut lapp = Vec::new();
-        let d_terms = self.partial(partial_index_type, alpha_type);
+    pub fn lapalacian(&self, partial_index_type: char, alpha_type: char) -> Vec<Term> {
+        let mut lap = Vec::new();
+        let mut neg_self = OrderedFloat(-1.0) * self.clone();
+        let d_terms = neg_self.partial(partial_index_type, alpha_type);
         for mut dt in d_terms {
             dt.collapse_all_deltas();
             let dd_terms = dt.partial(partial_index_type, alpha_type);
@@ -91,12 +98,12 @@ impl Term {
                 let out = ddt.alpha_reduce(alpha_type);
                 for mut term in out {
                     if let Some(_) = term.reduce() {
-                        term.add_term_to_vec(&mut lapp);
+                        term.add_term_to_vec(&mut lap);
                     }
                 }
             }
         }
-        lapp
+        lap
     }
 
     pub fn gradiant_product(
