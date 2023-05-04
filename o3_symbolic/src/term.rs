@@ -138,7 +138,7 @@ impl Term {
                     term_cl.parity_reduce(current_parity.clone());
 
                     // Compares if terms are identicial up to a scalar
-                    if let Some(res) = t.clone() + self.clone() {
+                    if let Some(res) = term_cl.clone() + t.clone() {
                         // if it is, add their sum to v, exit the function
                         v.push(res);
                         return;
@@ -534,5 +534,44 @@ mod tests {
                 )
             ])
         );
+    }
+
+    #[test]
+    fn test_shift_down() {
+        let t1 = Term::new(vec![
+            InnerProduct::new(
+                OrderedFloat(1.0),
+                BraKet::new('l', 'x', vec![0, 0]),
+                vec![],
+                BraKet::new('l', 'x', vec![1, 0]),
+                None,
+            ),
+            InnerProduct::new(
+                OrderedFloat(1.0),
+                BraKet::new('l', 'x', vec![1, 0]),
+                vec![],
+                BraKet::new('l', 'x', vec![1, 1]),
+                None,
+            ),
+        ]);
+        let mut test_vec = vec![t1];
+        let t2 = Term::new(vec![
+            InnerProduct::new(
+                OrderedFloat(1.0),
+                BraKet::new('l', 'x', vec![1, 0]),
+                vec![],
+                BraKet::new('l', 'x', vec![0, 0]),
+                None,
+            ),
+            InnerProduct::new(
+                OrderedFloat(1.0),
+                BraKet::new('l', 'x', vec![0, 0]),
+                vec![],
+                BraKet::new('l', 'x', vec![0, 1]),
+                None,
+            ),
+        ]);
+        t2.add_term_to_vec(&mut test_vec);
+        assert_eq!(test_vec.len(), 1)
     }
 }
