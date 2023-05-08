@@ -254,6 +254,7 @@ impl Term {
     pub fn reduce(&mut self) -> Option<()> {
         if let Some(_) = self.remove_constants() {
             self.shift_down();
+            self.remove_unused_shifts(&self.get_unused_shifts());
             self.sort_ips();
             self.scalar_reduce();
             Some(())
@@ -356,6 +357,25 @@ impl Term {
             }
         }
         v
+    }
+
+    pub fn get_unused_shifts(&self) -> Vec<usize> {
+        let mut unused_shifts = self.ips[0].get_unused_shift_index();
+        for i in 1..self.ips.len() {
+            let next_unused = self.ips[i].get_unused_shift_index();
+            unused_shifts.retain(|x| next_unused.contains(x));
+        }
+        unused_shifts
+    }
+
+    pub fn remove_unused_shifts(&mut self, indexes: &[usize]) {
+        let unused_count = indexes.len();
+        for ip in self.ips.iter_mut() {
+            ip.remove_unused_shifts(indexes);
+        }
+        let scalar = OrderedFloat(4.0_f64.powi(unused_count.try_into().unwrap()));
+        let current_scale = self.ips[0].get_scalar();
+        self.ips[0].set_scalar(current_scale * scalar);
     }
 }
 
@@ -580,5 +600,46 @@ mod tests {
         ]);
         t2.add_term_to_vec(&mut test_vec);
         assert_eq!(test_vec.len(), 1)
+    }
+
+    #[test]
+    fn test_get_unused_shift() {
+        let mut t = Term::new(vec![
+            InnerProduct::new(
+                OrderedFloat(0.25),
+                BraKet::new('l', 'x', vec![0, 0, 0]),
+                vec![],
+                BraKet::new('l', 'x', vec![1, 0, 0]),
+                None,
+            ),
+            InnerProduct::new(
+                OrderedFloat(1.0),
+                BraKet::new('l', 'x', vec![0, 0, 0]),
+                vec![],
+                BraKet::new('l', 'x', vec![0, 0, 1]),
+                None,
+            ),
+        ]);
+        let unused_shifts = t.get_unused_shifts();
+        t.remove_unused_shifts(&unused_shifts);
+        assert_eq!(
+            t,
+            Term::new(vec![
+                InnerProduct::new(
+                    OrderedFloat(1.0),
+                    BraKet::new('l', 'x', vec![0, 0]),
+                    vec![],
+                    BraKet::new('l', 'x', vec![1, 0]),
+                    None
+                ),
+                InnerProduct::new(
+                    OrderedFloat(1.0),
+                    BraKet::new('l', 'x', vec![0, 0]),
+                    vec![],
+                    BraKet::new('l', 'x', vec![0, 1]),
+                    None
+                )
+            ])
+        );
     }
 }

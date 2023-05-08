@@ -228,6 +228,18 @@ impl InnerProduct {
         self.bra.parity_transform(index);
         self.ket.parity_transform(index);
     }
+
+    pub fn get_unused_shift_index(&self) -> Vec<usize> {
+        let mut bra_zeros = self.bra.get_zero_shift_index();
+        let ket_zeros = self.ket.get_zero_shift_index();
+        bra_zeros.retain(|x| ket_zeros.contains(x));
+        bra_zeros
+    }
+
+    pub fn remove_unused_shifts(&mut self, indexes: &[usize]) {
+        self.bra.remove_unused_shifts(indexes);
+        self.ket.remove_unused_shifts(indexes);
+    }
 }
 
 impl PartialOrd for InnerProduct {

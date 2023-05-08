@@ -103,6 +103,24 @@ impl BraKet {
     pub fn parity_transform(&mut self, index: usize) {
         self.shift[index] = -self.shift[index];
     }
+
+    pub fn get_zero_shift_index(&self) -> Vec<usize> {
+        // get all indexes where shift[index] == 0
+        self.shift
+            .iter()
+            .enumerate()
+            .filter(|(_, &value)| value == 0)
+            .map(|(index, _)| index)
+            .collect()
+    }
+
+    pub fn remove_unused_shifts(&mut self, indexes: &[usize]) {
+        let mut removed = 0;
+        for i in indexes {
+            self.shift.remove(i - removed);
+            removed += 1;
+        }
+    }
 }
 
 impl PartialOrd for BraKet {
