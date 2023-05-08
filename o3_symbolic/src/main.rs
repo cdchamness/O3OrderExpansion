@@ -3,7 +3,6 @@ mod inner_product;
 mod kdelta;
 mod term;
 
-use crate::bra_ket::*;
 use crate::inner_product::*;
 use crate::term::*;
 
@@ -18,14 +17,12 @@ pub fn get_next_gp_from_prev_order(previous_order: Vec<Term>) -> Vec<Term> {
     for term in &mut prev_order {
         term.extend_shift_len();
     }
-    let len = prev_order[0].get_shift_index_len();
-    let new_term = OrderedFloat(0.5) * Term::new(vec![InnerProduct::basic(len)]);
     for term in prev_order {
+        let len = term.get_shift_index_len();
+        let new_term = OrderedFloat(0.5) * Term::new(vec![InnerProduct::basic(len)]);
         let mut gp = term.gradiant_product(new_term.clone(), 'x', 'a');
         for t in &mut gp {
             if let Some(_) = t.reduce() {
-                // known issues with this functions
-                // 1. Does not kill constant InnerProducts i.e. <y_0|y_0>
                 t.add_term_to_vec(&mut out);
             }
         }
@@ -112,10 +109,18 @@ pub fn build_matricies(
     let mut lap_mat = na::DMatrix::<f64>::zeros(dim, dim);
     let mut j = 0;
     while j < lap.len() {
-        let ddts = lap_hash_map.get(&lap[j]).unwrap(); // should be impossible to reach None branch!
+        let ddts = match lap_hash_map.get(&lap[j]) {
+            Some(v) => v.clone(),
+            None => {
+                let tc = &lap[j].clone();
+                let laplacian = tc.lapalacian('x', 'a');
+                lap_hash_map.insert(tc.clone(), laplacian.clone());
+                laplacian
+            }
+        };
         let mut i = 0;
         while i < lap.len() {
-            for ddt in ddts {
+            for ddt in &ddts {
                 let mut ddtc = ddt.clone();
                 let scalar = ddtc.extract_scalar();
                 ddtc.set_index_type('y');
@@ -130,7 +135,50 @@ pub fn build_matricies(
     (gp_vec, lap_mat)
 }
 
+pub fn get_next_order(
+    previous_order: Vec<Term>,
+    lap_hash_map: &mut HashMap<Term, Vec<Term>>,
+) -> Vec<Term> {
+    let gp = get_next_gp_from_prev_order(previous_order);
+    let lap = get_lap_terms_from_gp(gp.clone(), lap_hash_map);
+    let (gp_vec, lap_mat) = build_matricies(gp, lap.clone(), lap_hash_map);
+    let lap_inv = match lap_mat.try_inverse() {
+        Some(inv) => inv,
+        None => panic!("Could not invert Laplacian Matrix!"),
+    };
+    let result = lap_inv * gp_vec;
+
+    let mut i = 0;
+    let mut next_order = vec![];
+    while i < result.len() {
+        next_order.push(OrderedFloat(result[i]) * lap[i].clone());
+        i += 1;
+    }
+    next_order
+}
+
 fn main() {
+    let mut lap_hm = HashMap::new();
+    let mut prev_order = vec![OrderedFloat(0.125) * Term::new(vec![InnerProduct::basic(1)])];
+    println!("Order 0:");
+    println!("{}", prev_order[0].clone());
+    for i in 1..3 {
+        let next_order = get_next_order(prev_order.clone(), &mut lap_hm);
+        println!("\nOrder {}:", i);
+        for t in &next_order {
+            println!("{}", t);
+        }
+        prev_order = next_order.clone();
+    }
+}
+
+// This workflow has been implemented in get_next_order()
+// which is what main() now uses to loop to higher orders
+// by plugging in the output back as input.
+// The new function is much less verbose so I am keeping old_main()
+// incase I want to use the previous made println!()'s.
+/*
+fn old_main() {
     let mut lap_hm = HashMap::new();
     // 0th Order Soln. As this is easy to calculate we will start from here
     let start_term = OrderedFloat(0.125) * Term::new(vec![InnerProduct::basic(1)]);
@@ -155,7 +203,7 @@ fn main() {
         disp_string.pop();
         println!("{}", disp_string);
     }
-    let (gp_vec, lap_mat) = build_matricies(next_gp, lap, &mut lap_hm);
+    let (gp_vec, lap_mat) = build_matricies(next_gp, lap.clone(), &mut lap_hm);
     println!("\nGP vector: {}", gp_vec);
     println!("Laplacian Matrix: {}", lap_mat);
     let lap_inv = match lap_mat.try_inverse() {
@@ -165,4 +213,16 @@ fn main() {
     println!("Laplacian Inverse: {}", lap_inv);
     let result = lap_inv * gp_vec;
     println!("\nResult: {}", result);
+
+    let mut i = 0;
+    let mut start_order = vec![];
+    while i < result.len() {
+        start_order.push(OrderedFloat(result[i]) * lap[i].clone());
+        i += 1;
+    }
+
+    for j in &start_order {
+        println!("{}", j);
+    }
 }
+*/
