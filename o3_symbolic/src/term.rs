@@ -135,6 +135,22 @@ impl Term {
         // updates v to include term
         let mut counter = 0;
         while counter < v.len() {
+            if let Some(t) = v.pop() {
+                if let Some(res) = self.clone() + t.clone() {
+                    v.push(res);
+                    return;
+                } else {
+                    v.insert(0, t);
+                    counter += 1;
+                }
+            }
+        }
+        v.push(self.clone());
+    }
+    pub fn add_term_to_vec_save(&self, v: &mut Vec<Term>) {
+        // updates v to include term
+        let mut counter = 0;
+        while counter < v.len() {
             let mut current_parity = vec![false; self.get_shift_index_len()];
             if let Some(t) = v.pop() {
                 // grabs last element out of v
@@ -144,7 +160,7 @@ impl Term {
                     // make term have same parity as 'current_partiy'
                     let mut term_cl = self.clone();
                     term_cl.parity_reduce(current_parity.clone());
-
+                    term_cl.reduce();
                     // Compares if terms are identicial up to a scalar
                     if let Some(res) = term_cl.clone() + t.clone() {
                         // if it is, add their sum to v, exit the function
@@ -257,7 +273,24 @@ impl Term {
             self.shift_down();
             self.remove_unused_shifts(&self.get_unused_shifts());
             self.sort_ips();
-            self.scalar_reduce();
+            let mut current_parity = vec![false; self.get_shift_index_len()];
+            let mut repr = self.clone();
+            loop {
+                current_parity = Self::get_next_parity(current_parity);
+                if current_parity == vec![false; self.get_shift_index_len()] {
+                    break;
+                }
+                let mut tcl = self.clone();
+                tcl.parity_reduce(current_parity.clone());
+                tcl.shift_down();
+                tcl.sort_ips();
+                match tcl.partial_cmp(&repr).unwrap_or(Ordering::Greater) {
+                    Ordering::Less => repr = tcl.clone(),
+                    _ => {}
+                };
+            }
+            repr.scalar_reduce();
+            self.ips = repr.get_ips();
             Some(())
         } else {
             None
@@ -326,7 +359,7 @@ impl Term {
         let mut new_ips = Vec::new();
         for mut ip in self.get_ips() {
             ip.order_bra_kets();
-            new_ips.push(ip);
+            new_ips.push(ip.clone());
         }
         new_ips.sort_by(|a, b| a.partial_cmp(b).unwrap());
         self.ips = new_ips;
@@ -338,7 +371,6 @@ impl Term {
                 self.parity_transform(index);
             }
         }
-        self.reduce();
     }
 
     pub fn parity_transform(&mut self, index: usize) {
@@ -530,6 +562,13 @@ mod tests {
         let v = vec![false, true, false];
         let p = Term::get_next_parity(v);
         assert_eq!(p, vec![true, true, false])
+    }
+
+    #[test]
+    fn next_parity4() {
+        let v = vec![true, true, true];
+        let p = Term::get_next_parity(v);
+        assert_eq!(p, vec![false, false, false])
     }
 
     #[test]
