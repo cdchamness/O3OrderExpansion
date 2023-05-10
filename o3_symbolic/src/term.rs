@@ -1,4 +1,5 @@
 use ordered_float::OrderedFloat;
+use std::cmp::Ordering;
 use std::fmt;
 use std::ops::{Add, Mul};
 
@@ -389,6 +390,46 @@ impl Mul<InnerProduct> for Term {
     }
 }
 
+impl fmt::Display for Term {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut disp_string = self.get_scalar_val().clone().to_string();
+        for ip in &self.ips {
+            disp_string += &ip.to_string();
+        }
+
+        write!(f, "{}", disp_string)
+    }
+}
+
+impl PartialOrd for Term {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        let ip_count = self.ips.len();
+        match ip_count.cmp(&other.ips.len()) {
+            Ordering::Less => Some(Ordering::Less),
+            Ordering::Greater => Some(Ordering::Greater),
+            Ordering::Equal => {
+                // Terms has the same number of innerproducts
+                for i in 0..ip_count {
+                    if let Some(ord) = self.ips[i].partial_cmp(&other.ips[i]) {
+                        match ord {
+                            Ordering::Less => {
+                                return Some(Ordering::Less);
+                            }
+                            Ordering::Greater => {
+                                return Some(Ordering::Greater);
+                            }
+                            Ordering::Equal => continue,
+                        }
+                    } else {
+                        return None;
+                    }
+                }
+                Some(Ordering::Equal)
+            }
+        }
+    }
+}
+
 impl PartialEq for Term {
     fn eq(&self, other: &Self) -> bool {
         let my_len = self.ips.len();
@@ -439,17 +480,6 @@ impl Mul<Term> for Term {
     }
 }
 
-impl fmt::Display for Term {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mut disp_string = self.get_scalar_val().clone().to_string();
-        for ip in &self.ips {
-            disp_string += &ip.to_string();
-        }
-
-        write!(f, "{}", disp_string)
-    }
-}
-
 impl Add<Term> for Term {
     type Output = Option<Term>;
 
@@ -479,6 +509,7 @@ mod tests {
 
     use crate::{bra_ket::BraKet, inner_product::InnerProduct, term::Term};
     use ordered_float::OrderedFloat;
+    use std::cmp::Ordering;
 
     #[test]
     fn next_parity1() {
@@ -641,5 +672,52 @@ mod tests {
                 )
             ])
         );
+    }
+
+    #[test]
+    fn partial_cmp_test() {
+        let t = Term::new(vec![
+            InnerProduct::new(
+                OrderedFloat(1.0),
+                BraKet::new('l', 'x', vec![0, 0]),
+                vec![],
+                BraKet::new('l', 'x', vec![1, 0]),
+                None,
+            ),
+            InnerProduct::new(
+                OrderedFloat(1.0),
+                BraKet::new('l', 'x', vec![0, 0]),
+                vec![],
+                BraKet::new('l', 'x', vec![0, 1]),
+                None,
+            ),
+        ]);
+        let tt = Term::new(vec![
+            InnerProduct::basic(1),
+            InnerProduct::basic(1),
+            InnerProduct::basic(1),
+        ]);
+        let ttt = Term::new(vec![InnerProduct::basic(1)]);
+        let t2 = Term::new(vec![
+            InnerProduct::new(
+                OrderedFloat(1.0),
+                BraKet::new('l', 'x', vec![0, 0]),
+                vec![],
+                BraKet::new('l', 'x', vec![0, 1]),
+                None,
+            ),
+            InnerProduct::new(
+                OrderedFloat(1.0),
+                BraKet::new('l', 'x', vec![0, 0]),
+                vec![],
+                BraKet::new('l', 'x', vec![1, 0]),
+                None,
+            ),
+        ]);
+        assert_eq!(t.clone().partial_cmp(&t), Some(Ordering::Equal));
+        assert_eq!(t.clone().partial_cmp(&tt), Some(Ordering::Less));
+        assert_eq!(t.clone().partial_cmp(&ttt), Some(Ordering::Greater));
+        assert_eq!(t.clone().partial_cmp(&t2), Some(Ordering::Less));
+        assert_eq!(t2.clone().partial_cmp(&t), Some(Ordering::Greater));
     }
 }
