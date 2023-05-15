@@ -2,6 +2,7 @@ mod bra_ket;
 mod inner_product;
 mod kdelta;
 mod term;
+mod tools;
 
 use crate::inner_product::*;
 use crate::term::*;
@@ -142,6 +143,8 @@ pub fn get_next_order(
     let gp = get_next_gp_from_prev_order(previous_order);
     let lap = get_lap_terms_from_gp(gp.clone(), lap_hash_map);
     let (gp_vec, lap_mat) = build_matricies(gp, lap.clone(), lap_hash_map);
+    println!("{}", gp_vec);
+    println!("{}", lap_mat);
     let lap_inv = match lap_mat.try_inverse() {
         Some(inv) => inv,
         None => panic!("Could not invert Laplacian Matrix!"),
@@ -159,16 +162,27 @@ pub fn get_next_order(
 
 fn main() {
     let mut lap_hm = HashMap::new();
-    let mut prev_order = vec![OrderedFloat(0.125) * Term::new(vec![InnerProduct::basic(1)])];
+    let mut prev_order =
+        vec![OrderedFloat(80.0) * (OrderedFloat(0.125) * Term::new(vec![InnerProduct::basic(1)]))];
     println!("Order 0:");
     println!("{}", prev_order[0].clone());
-    for i in 1..3 {
+    for i in 1..=2 {
         let next_order = get_next_order(prev_order.clone(), &mut lap_hm);
         println!("\nOrder {}:", i);
         for t in &next_order {
             println!("{}", t);
         }
         prev_order = next_order.clone();
+    }
+
+    println!("\n\nLaplacian HashMap");
+    for (key, val) in lap_hm.iter() {
+        let mut disp_string = format!("\n-∇^2 {} =", key);
+        for t in val {
+            disp_string += format!(" {} +", t).as_str();
+        }
+        disp_string.pop();
+        println!("{}", disp_string);
     }
 }
 

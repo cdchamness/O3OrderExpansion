@@ -34,6 +34,10 @@ impl BraKet {
         self.shift.clone()
     }
 
+    pub fn get_index_type(&self) -> char {
+        self.index_type
+    }
+
     pub fn extend_shift_len(&mut self) {
         self.shift.push(0);
     }
@@ -121,6 +125,14 @@ impl BraKet {
             removed += 1;
         }
     }
+
+    pub fn apply_perm(&mut self, perm: &Vec<usize>) {
+        let mut new_shift = vec![0; self.shift.len()];
+        for (i, &new_index) in perm.iter().enumerate() {
+            new_shift[new_index] = self.shift[i].clone();
+        }
+        self.shift = new_shift.clone();
+    }
 }
 
 impl PartialOrd for BraKet {
@@ -129,14 +141,14 @@ impl PartialOrd for BraKet {
         match size.cmp(&other.shift.len()) {
             Ordering::Equal => {
                 for i in 0..size {
-                    match self.shift[i].cmp(&other.shift[i]) {
+                    match self.shift[size - 1 - i].cmp(&other.shift[size - 1 - i]) {
                         Ordering::Less => {
                             return Some(Ordering::Less);
                         }
                         Ordering::Greater => {
                             return Some(Ordering::Greater);
                         }
-                        Ordering::Equal => {}
+                        Ordering::Equal => continue,
                     }
                 }
                 Some(Ordering::Equal)
@@ -153,7 +165,7 @@ impl Ord for BraKet {
         match size.cmp(&other.shift.len()) {
             Ordering::Equal => {
                 for i in 0..size {
-                    match self.shift[i].cmp(&other.shift[i]) {
+                    match self.shift[size - 1 - i].cmp(&other.shift[size - 1 - i]) {
                         Ordering::Less => {
                             return Ordering::Less;
                         }
