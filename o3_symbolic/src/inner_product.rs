@@ -82,6 +82,10 @@ impl InnerProduct {
         self.delta.clone()
     }
 
+    pub fn get_index_type(&self) -> char {
+        self.bra.get_index_type()
+    }
+
     pub fn extract_scalar(&mut self) -> OrderedFloat<f64> {
         let num = self.scalar;
         self.scalar = OrderedFloat(1.0);
@@ -119,6 +123,11 @@ impl InnerProduct {
     pub fn set_index_type(&mut self, new_index_type: char) {
         self.bra.set_index_type(new_index_type);
         self.ket.set_index_type(new_index_type);
+    }
+
+    pub fn apply_perm(&mut self, perm: &Vec<usize>) {
+        self.bra.apply_perm(perm);
+        self.ket.apply_perm(perm);
     }
 
     pub fn partial(&self, partial_index_type: char, alpha_type: char) -> Vec<InnerProduct> {
@@ -247,11 +256,25 @@ impl PartialOrd for InnerProduct {
         match self.bra.cmp(&other.bra) {
             Ordering::Equal => match self.ket.cmp(&other.ket) {
                 Ordering::Equal => Some(Ordering::Equal),
-                Ordering::Greater => Some(Ordering::Less),
-                Ordering::Less => Some(Ordering::Greater),
+                Ordering::Greater => Some(Ordering::Greater),
+                Ordering::Less => Some(Ordering::Less),
             },
             Ordering::Greater => Some(Ordering::Greater),
             Ordering::Less => Some(Ordering::Less),
+        }
+    }
+}
+
+impl Ord for InnerProduct {
+    fn cmp(&self, other: &Self) -> Ordering {
+        match self.bra.cmp(&other.bra) {
+            Ordering::Equal => match self.ket.cmp(&other.ket) {
+                Ordering::Equal => Ordering::Equal,
+                Ordering::Greater => Ordering::Greater,
+                Ordering::Less => Ordering::Less,
+            },
+            Ordering::Greater => Ordering::Greater,
+            Ordering::Less => Ordering::Less,
         }
     }
 }

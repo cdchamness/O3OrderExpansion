@@ -1,9 +1,11 @@
 use ordered_float::OrderedFloat;
+use std::cmp::Ordering;
 use std::fmt;
 use std::ops::{Add, Mul};
 
 use crate::inner_product::*;
 use crate::kdelta::*;
+use crate::tools::*;
 
 #[derive(Clone, Debug, Eq, Hash)]
 pub struct Term {
@@ -40,6 +42,10 @@ impl Term {
         self.ips.clone()
     }
 
+    pub fn get_index_type(&self) -> char {
+        self.ips[0].get_index_type()
+    }
+
     pub fn get_shift_index_len(&self) -> usize {
         self.ips[0].get_bra().get_shift().len()
     }
@@ -68,6 +74,17 @@ impl Term {
             ips.push(ip.clone())
         }
         Term::new(ips)
+    }
+
+    pub fn get_perms(&self) -> Vec<Vec<usize>> {
+        let l = self.get_shift_index_len();
+        gen_all_permuations(l)
+    }
+
+    pub fn apply_perm(&mut self, perm: &Vec<usize>) {
+        for ip in self.ips.iter_mut() {
+            ip.apply_perm(perm);
+        }
     }
 
     pub fn partial(&mut self, partial_index_type: char, alpha_type: char) -> Vec<Term> {
@@ -134,6 +151,22 @@ impl Term {
         // updates v to include term
         let mut counter = 0;
         while counter < v.len() {
+            if let Some(t) = v.pop() {
+                if let Some(res) = self.clone() + t.clone() {
+                    v.push(res);
+                    return;
+                } else {
+                    v.insert(0, t);
+                    counter += 1;
+                }
+            }
+        }
+        v.push(self.clone());
+    }
+    pub fn add_term_to_vec_save(&self, v: &mut Vec<Term>) {
+        // updates v to include term
+        let mut counter = 0;
+        while counter < v.len() {
             let mut current_parity = vec![false; self.get_shift_index_len()];
             if let Some(t) = v.pop() {
                 // grabs last element out of v
@@ -143,7 +176,7 @@ impl Term {
                     // make term have same parity as 'current_partiy'
                     let mut term_cl = self.clone();
                     term_cl.parity_reduce(current_parity.clone());
-
+                    term_cl.reduce();
                     // Compares if terms are identicial up to a scalar
                     if let Some(res) = term_cl.clone() + t.clone() {
                         // if it is, add their sum to v, exit the function
@@ -252,11 +285,11 @@ impl Term {
     }
 
     pub fn reduce(&mut self) -> Option<()> {
-        if let Some(_) = self.remove_constants() {
+        if self.remove_constants().is_some() {
             self.shift_down();
             self.remove_unused_shifts(&self.get_unused_shifts());
             self.sort_ips();
-            self.scalar_reduce();
+            self.cyclic_reduce();
             Some(())
         } else {
             None
@@ -325,7 +358,7 @@ impl Term {
         let mut new_ips = Vec::new();
         for mut ip in self.get_ips() {
             ip.order_bra_kets();
-            new_ips.push(ip);
+            new_ips.push(ip.clone());
         }
         new_ips.sort_by(|a, b| a.partial_cmp(b).unwrap());
         self.ips = new_ips;
@@ -337,7 +370,6 @@ impl Term {
                 self.parity_transform(index);
             }
         }
-        self.reduce();
     }
 
     pub fn parity_transform(&mut self, index: usize) {
@@ -357,6 +389,38 @@ impl Term {
             }
         }
         v
+    }
+
+    pub fn cyclic_reduce(&mut self) {
+        let mut repr = self.clone();
+        let perms = self.get_perms();
+        for perm in &perms {
+            let mut perm_cl = self.clone();
+            perm_cl.apply_perm(perm);
+            perm_cl.shift_down();
+            perm_cl.remove_unused_shifts(&perm_cl.get_unused_shifts());
+            perm_cl.sort_ips();
+            if perm_cl.cmp(&repr) == Ordering::Less {
+                repr = perm_cl.clone()
+            };
+            let mut current_parity = vec![false; self.get_shift_index_len()];
+            loop {
+                current_parity = Self::get_next_parity(current_parity);
+                if current_parity == vec![false; self.get_shift_index_len()] {
+                    break;
+                }
+                let mut tcl = perm_cl.clone();
+                tcl.parity_reduce(current_parity.clone());
+                tcl.shift_down();
+                tcl.remove_unused_shifts(&tcl.get_unused_shifts());
+                tcl.sort_ips();
+                if tcl.cmp(&repr) == Ordering::Less {
+                    repr = tcl.clone()
+                };
+            }
+        }
+        repr.scalar_reduce();
+        self.ips = repr.get_ips();
     }
 
     pub fn get_unused_shifts(&self) -> Vec<usize> {
@@ -386,6 +450,71 @@ impl Mul<InnerProduct> for Term {
         let mut ips = self.ips;
         ips.push(rhs);
         Term::new(ips)
+    }
+}
+
+impl fmt::Display for Term {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut disp_string = self.get_scalar_val().clone().to_string();
+        for ip in &self.ips {
+            disp_string += &ip.to_string();
+        }
+
+        write!(f, "{}", disp_string)
+    }
+}
+
+impl PartialOrd for Term {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        let ip_count = self.ips.len();
+        match ip_count.cmp(&other.ips.len()) {
+            Ordering::Less => Some(Ordering::Less),
+            Ordering::Greater => Some(Ordering::Greater),
+            Ordering::Equal => {
+                // Terms have the same number of innerproducts
+                for i in 0..ip_count {
+                    if let Some(ord) = self.ips[i].partial_cmp(&other.ips[i]) {
+                        match ord {
+                            Ordering::Less => {
+                                return Some(Ordering::Less);
+                            }
+                            Ordering::Greater => {
+                                return Some(Ordering::Greater);
+                            }
+                            Ordering::Equal => continue,
+                        }
+                    } else {
+                        return None;
+                    }
+                }
+                Some(Ordering::Equal)
+            }
+        }
+    }
+}
+
+impl Ord for Term {
+    fn cmp(&self, other: &Self) -> Ordering {
+        let ip_count = self.ips.len();
+        match ip_count.cmp(&other.ips.len()) {
+            Ordering::Less => Ordering::Less,
+            Ordering::Greater => Ordering::Greater,
+            Ordering::Equal => {
+                // Terms have the same number of innerproducts
+                for i in 0..ip_count {
+                    match self.ips[i].cmp(&other.ips[i]) {
+                        Ordering::Less => {
+                            return Ordering::Less;
+                        }
+                        Ordering::Greater => {
+                            return Ordering::Greater;
+                        }
+                        Ordering::Equal => continue,
+                    }
+                }
+                Ordering::Equal
+            }
+        }
     }
 }
 
@@ -439,17 +568,6 @@ impl Mul<Term> for Term {
     }
 }
 
-impl fmt::Display for Term {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mut disp_string = self.get_scalar_val().clone().to_string();
-        for ip in &self.ips {
-            disp_string += &ip.to_string();
-        }
-
-        write!(f, "{}", disp_string)
-    }
-}
-
 impl Add<Term> for Term {
     type Output = Option<Term>;
 
@@ -463,11 +581,7 @@ impl Add<Term> for Term {
         // both scalars should be set to 1.0 for the clones => the comparison should only consider the structure as the scalar components will match
         if cl == rhs_cl {
             cl.set_scalar(self_scalar + rhs_scalar);
-            if let Some(_) = cl.reduce() {
-                Some(cl)
-            } else {
-                None
-            }
+            Some(cl)
         } else {
             None
         }
@@ -479,6 +593,7 @@ mod tests {
 
     use crate::{bra_ket::BraKet, inner_product::InnerProduct, term::Term};
     use ordered_float::OrderedFloat;
+    use std::cmp::Ordering;
 
     #[test]
     fn next_parity1() {
@@ -499,6 +614,13 @@ mod tests {
         let v = vec![false, true, false];
         let p = Term::get_next_parity(v);
         assert_eq!(p, vec![true, true, false])
+    }
+
+    #[test]
+    fn next_parity4() {
+        let v = vec![true, true, true];
+        let p = Term::get_next_parity(v);
+        assert_eq!(p, vec![false, false, false])
     }
 
     #[test]
@@ -565,7 +687,7 @@ mod tests {
 
     #[test]
     fn test_shift_down() {
-        let t1 = Term::new(vec![
+        let mut t1 = Term::new(vec![
             InnerProduct::new(
                 OrderedFloat(1.0),
                 BraKet::new('l', 'x', vec![0, 0]),
@@ -581,8 +703,9 @@ mod tests {
                 None,
             ),
         ]);
+        t1.reduce();
         let mut test_vec = vec![t1];
-        let t2 = Term::new(vec![
+        let mut t2 = Term::new(vec![
             InnerProduct::new(
                 OrderedFloat(1.0),
                 BraKet::new('l', 'x', vec![1, 0]),
@@ -598,7 +721,12 @@ mod tests {
                 None,
             ),
         ]);
-        t2.add_term_to_vec(&mut test_vec);
+        if let Some(_) = t2.reduce() {
+            t2.add_term_to_vec(&mut test_vec);
+        }
+        for t in &test_vec {
+            println!("{}", t);
+        }
         assert_eq!(test_vec.len(), 1)
     }
 
@@ -641,5 +769,124 @@ mod tests {
                 )
             ])
         );
+    }
+
+    #[test]
+    fn cmp_test() {
+        let t = Term::new(vec![
+            InnerProduct::new(
+                OrderedFloat(1.0),
+                BraKet::new('l', 'x', vec![0, 0]),
+                vec![],
+                BraKet::new('l', 'x', vec![1, 0]),
+                None,
+            ),
+            InnerProduct::new(
+                OrderedFloat(1.0),
+                BraKet::new('l', 'x', vec![0, 0]),
+                vec![],
+                BraKet::new('l', 'x', vec![0, 1]),
+                None,
+            ),
+        ]);
+        let tt = Term::new(vec![
+            InnerProduct::basic(1),
+            InnerProduct::basic(1),
+            InnerProduct::basic(1),
+        ]);
+        let ttt = Term::new(vec![InnerProduct::basic(1)]);
+        let t2 = Term::new(vec![
+            InnerProduct::new(
+                OrderedFloat(1.0),
+                BraKet::new('l', 'x', vec![0, 0]),
+                vec![],
+                BraKet::new('l', 'x', vec![0, 1]),
+                None,
+            ),
+            InnerProduct::new(
+                OrderedFloat(1.0),
+                BraKet::new('l', 'x', vec![0, 0]),
+                vec![],
+                BraKet::new('l', 'x', vec![1, 0]),
+                None,
+            ),
+        ]);
+        assert_eq!(t.clone().cmp(&t), Ordering::Equal);
+        assert_eq!(t.clone().cmp(&tt), Ordering::Less);
+        assert_eq!(t.clone().cmp(&ttt), Ordering::Greater);
+        assert_eq!(t.clone().cmp(&t2), Ordering::Less);
+        assert_eq!(t2.clone().cmp(&t), Ordering::Greater);
+    }
+
+    #[test]
+    fn test_reduce() {
+        let mut t1 = Term::new(vec![
+            InnerProduct::new(
+                OrderedFloat(1.0),
+                BraKet::new('l', 'x', vec![0, 0, 0]),
+                vec![],
+                BraKet::new('l', 'x', vec![1, 0, 0]),
+                None,
+            ),
+            InnerProduct::new(
+                OrderedFloat(1.0),
+                BraKet::new('l', 'x', vec![1, 0, 0]),
+                vec![],
+                BraKet::new('l', 'x', vec![1, 1, 1]),
+                None,
+            ),
+        ]);
+        t1.reduce();
+        let rt1 = Term::new(vec![
+            InnerProduct::new(
+                OrderedFloat(1.0),
+                BraKet::new('l', 'x', vec![0, 0, 0]),
+                vec![],
+                BraKet::new('l', 'x', vec![1, 0, 0]),
+                None,
+            ),
+            InnerProduct::new(
+                OrderedFloat(1.0),
+                BraKet::new('l', 'x', vec![0, 0, 0]),
+                vec![],
+                BraKet::new('l', 'x', vec![0, 1, 1]),
+                None,
+            ),
+        ]);
+        let mut t2 = Term::new(vec![
+            InnerProduct::new(
+                OrderedFloat(1.0),
+                BraKet::new('l', 'x', vec![0, 0, 0]),
+                vec![],
+                BraKet::new('l', 'x', vec![1, 0, 0]),
+                None,
+            ),
+            InnerProduct::new(
+                OrderedFloat(1.0),
+                BraKet::new('l', 'x', vec![1, 1, 0]),
+                vec![],
+                BraKet::new('l', 'x', vec![1, 0, 1]),
+                None,
+            ),
+        ]);
+        t2.reduce();
+        let rt2 = Term::new(vec![
+            InnerProduct::new(
+                OrderedFloat(1.0),
+                BraKet::new('l', 'x', vec![0, 0, 0]),
+                vec![],
+                BraKet::new('l', 'x', vec![1, 0, 0]),
+                None,
+            ),
+            InnerProduct::new(
+                OrderedFloat(1.0),
+                BraKet::new('l', 'x', vec![0, 1, 0]),
+                vec![],
+                BraKet::new('l', 'x', vec![0, 0, 1]),
+                None,
+            ),
+        ]);
+        assert_eq!(t1, rt1);
+        assert_eq!(t2, rt2);
     }
 }
