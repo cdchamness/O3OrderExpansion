@@ -285,40 +285,11 @@ impl Term {
     }
 
     pub fn reduce(&mut self) -> Option<()> {
-        if let Some(_) = self.remove_constants() {
+        if self.remove_constants().is_some() {
             self.shift_down();
             self.remove_unused_shifts(&self.get_unused_shifts());
             self.sort_ips();
-            let mut repr = self.clone();
-            let perms = self.get_perms();
-            for perm in &perms {
-                let mut perm_cl = self.clone();
-                perm_cl.apply_perm(perm);
-                perm_cl.shift_down();
-                perm_cl.remove_unused_shifts(&perm_cl.get_unused_shifts());
-                perm_cl.sort_ips();
-                match perm_cl.cmp(&repr) {
-                    Ordering::Less => repr = perm_cl.clone(),
-                    _ => {}
-                };
-                let mut current_parity = vec![false; self.get_shift_index_len()];
-                loop {
-                    current_parity = Self::get_next_parity(current_parity);
-                    if current_parity == vec![false; self.get_shift_index_len()] {
-                        break;
-                    }
-                    let mut tcl = perm_cl.clone();
-                    tcl.parity_reduce(current_parity.clone());
-                    tcl.shift_down();
-                    tcl.sort_ips();
-                    match tcl.cmp(&repr) {
-                        Ordering::Less => repr = tcl.clone(),
-                        _ => {}
-                    };
-                }
-            }
-            repr.scalar_reduce();
-            self.ips = repr.get_ips();
+            self.cyclic_reduce();
             Some(())
         } else {
             None
@@ -418,6 +389,38 @@ impl Term {
             }
         }
         v
+    }
+
+    pub fn cyclic_reduce(&mut self) {
+        let mut repr = self.clone();
+        let perms = self.get_perms();
+        for perm in &perms {
+            let mut perm_cl = self.clone();
+            perm_cl.apply_perm(perm);
+            perm_cl.shift_down();
+            perm_cl.remove_unused_shifts(&perm_cl.get_unused_shifts());
+            perm_cl.sort_ips();
+            if perm_cl.cmp(&repr) == Ordering::Less {
+                repr = perm_cl.clone()
+            };
+            let mut current_parity = vec![false; self.get_shift_index_len()];
+            loop {
+                current_parity = Self::get_next_parity(current_parity);
+                if current_parity == vec![false; self.get_shift_index_len()] {
+                    break;
+                }
+                let mut tcl = perm_cl.clone();
+                tcl.parity_reduce(current_parity.clone());
+                tcl.shift_down();
+                tcl.remove_unused_shifts(&tcl.get_unused_shifts());
+                tcl.sort_ips();
+                if tcl.cmp(&repr) == Ordering::Less {
+                    repr = tcl.clone()
+                };
+            }
+        }
+        repr.scalar_reduce();
+        self.ips = repr.get_ips();
     }
 
     pub fn get_unused_shifts(&self) -> Vec<usize> {

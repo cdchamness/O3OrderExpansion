@@ -162,11 +162,10 @@ pub fn get_next_order(
 
 fn main() {
     let mut lap_hm = HashMap::new();
-    let mut prev_order =
-        vec![OrderedFloat(80.0) * (OrderedFloat(0.125) * Term::new(vec![InnerProduct::basic(1)]))];
+    let mut prev_order = vec![OrderedFloat(0.125) * Term::new(vec![InnerProduct::basic(1)])];
     println!("Order 0:");
     println!("{}", prev_order[0].clone());
-    for i in 1..=2 {
+    for i in 1..=3 {
         let next_order = get_next_order(prev_order.clone(), &mut lap_hm);
         println!("\nOrder {}:", i);
         for t in &next_order {
@@ -175,15 +174,15 @@ fn main() {
         prev_order = next_order.clone();
     }
 
-    println!("\n\nLaplacian HashMap");
-    for (key, val) in lap_hm.iter() {
-        let mut disp_string = format!("\n-∇^2 {} =", key);
-        for t in val {
-            disp_string += format!(" {} +", t).as_str();
-        }
-        disp_string.pop();
-        println!("{}", disp_string);
-    }
+    //println!("\n\nLaplacian HashMap");
+    //for (key, val) in lap_hm.iter() {
+    //    let mut disp_string = format!("\n-∇^2 {} =", key);
+    //    for t in val {
+    //        disp_string += format!(" {} +", t).as_str();
+    //    }
+    //    disp_string.pop();
+    //    println!("{}", disp_string);
+    //}
 }
 
 // This workflow has been implemented in get_next_order()
