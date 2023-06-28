@@ -30,7 +30,7 @@ pub struct InnerProduct {
     bra: BraKet,
     inner: Vec<Gen>,
     ket: BraKet,
-    delta: Option<KDelta>,
+    deltas: Option<Vec<KDelta>>,
 }
 
 impl InnerProduct {
@@ -39,14 +39,14 @@ impl InnerProduct {
         bra: BraKet,
         inner: Vec<Gen>,
         ket: BraKet,
-        delta: Option<KDelta>,
+        deltas: Option<Vec<KDelta>>,
     ) -> InnerProduct {
         InnerProduct {
             scalar,
             bra,
             inner,
             ket,
-            delta,
+            deltas,
         }
     }
 
@@ -58,7 +58,7 @@ impl InnerProduct {
             bra: BraKet::new('l', 'y', vec![0; len]),
             inner: vec![],
             ket: BraKet::new('l', 'y', k_vec),
-            delta: None,
+            deltas: None,
         }
     }
 
@@ -78,8 +78,8 @@ impl InnerProduct {
         self.ket.clone()
     }
 
-    pub fn get_delta(&self) -> Option<KDelta> {
-        self.delta.clone()
+    pub fn get_deltas(&self) -> Option<Vec<KDelta>> {
+        self.deltas.clone()
     }
 
     pub fn get_index_type(&self) -> char {
@@ -140,7 +140,7 @@ impl InnerProduct {
                 self.bra.clone(),
                 inside,
                 self.ket.clone(),
-                Some(bra_kdelta),
+                Some(vec![bra_kdelta]),
             );
             out.push(new_ip);
         }
@@ -152,7 +152,7 @@ impl InnerProduct {
                 self.bra.clone(),
                 inside,
                 self.ket.clone(),
-                Some(ket_kdelta),
+                Some(vec![ket_kdelta]),
             );
             out.push(new_ip);
         }
@@ -162,8 +162,11 @@ impl InnerProduct {
     pub fn collapse_delta(&mut self, delta: &KDelta) {
         self.bra.collapse_delta(delta);
         self.ket.collapse_delta(delta);
-        if Some(delta) == self.delta.as_ref() {
-            self.delta = None
+        if let Some(deltas) = &mut self.deltas {
+            deltas.retain(|d| d != delta);
+            if deltas.is_empty() {
+                self.deltas = None;
+            }
         }
     }
 
@@ -178,28 +181,28 @@ impl InnerProduct {
             ip1.get_bra(),
             ip1.get_inner(),
             ip2.get_bra(),
-            ip1.get_delta(),
+            ip1.get_deltas(),
         );
         let new_ip2 = InnerProduct::new(
             ip2.get_scalar(),
             ip1.get_ket(),
             ip2.get_inner(),
             ip2.get_ket(),
-            ip2.get_delta(),
+            ip2.get_deltas(),
         );
         let new_ip3 = InnerProduct::new(
             OrderedFloat(-1.0) * ip1.get_scalar(),
             ip1.get_bra(),
             ip1.get_inner(),
             ip2.get_ket(),
-            ip1.get_delta(),
+            ip1.get_deltas(),
         );
         let new_ip4 = InnerProduct::new(
             ip2.get_scalar(),
             ip1.get_ket(),
             ip2.get_inner(),
             ip2.get_bra(),
-            ip2.get_delta(),
+            ip2.get_deltas(),
         );
 
         let t1 = Term::new(vec![new_ip1, new_ip2]);
@@ -209,7 +212,7 @@ impl InnerProduct {
     }
 
     pub fn is_constant(&self) -> bool {
-        self.bra == self.ket && self.delta == None && self.inner.is_empty() // && self.scalar == 1.0
+        self.bra == self.ket && self.deltas == None && self.inner.is_empty() // && self.scalar == 1.0
     }
 
     fn switch_order(&mut self) {
@@ -294,8 +297,10 @@ impl fmt::Display for InnerProduct {
         }
         my_str += &self.ket.get_string();
         my_str += ">";
-        if let Some(delt) = &self.delta {
-            my_str += &delt.to_string();
+        if let Some(deltas) = &self.deltas {
+            for delta in deltas {
+                my_str += &delta.to_string();
+            }
         }
         write!(f, "{}", my_str)
     }

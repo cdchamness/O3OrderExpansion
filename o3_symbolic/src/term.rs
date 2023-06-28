@@ -215,8 +215,8 @@ impl Term {
 
     fn get_next_delta(&self) -> Option<KDelta> {
         for ip in &self.ips {
-            if let Some(delta) = ip.get_delta() {
-                return Some(delta);
+            if let Some(deltas) = ip.get_deltas() {
+                return Some(deltas[0].clone());
             };
         }
         None
