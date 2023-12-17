@@ -47,6 +47,22 @@ def getFlowValue(term, lattice):
             return scalar * psi.dPsi_1_1(lattice)
         case "Psi_1_1f":
             return scalar * psi.dPsi_1_1f(lattice)
+        case "Psi_3":
+            return scalar * psi.dPsi_3(lattice)
+        case "Psi_2_1":
+            return scalar * psi.dPsi_2_1(lattice)
+        case "Psi_1_2_disc":
+            return scalar * psi.dPsi_1_2_disc(lattice)
+        case "Psi_1_1_1_branch":
+            return scalar * psi.dPsi_1_1_1_branch(lattice)
+        case "Psi_1_1_1_chain":
+            return scalar * psi.dPsi_1_1_1_chain(lattice)
+        case "Psi_1_2f":
+            return scalar * psi.dPsi_1_2f(lattice)
+        case "Psi_1_1f_1":
+            return scalar * psi.dPsi_1_1f_1(lattice)
+        case "Psi_1_1f_1f":
+            return scalar * psi.dPsi_1_1f_1f(lattice)
 
 
 def getLap(SFlow, lattice, time, beta):
@@ -71,6 +87,22 @@ def getLapValue(term, lattice):
             return scalar * (10 * psi.Psi_1_1(lattice) - 2 * psi.Psi_2(lattice) + 2 * psi.Psi_1_1f(lattice))
         case "Psi_1_1f":
             return scalar * 12 * psi.Psi_1_1f(lattice)
+        case "Psi_3":
+            return scalar * 4 * psi.Psi_3(lattice)
+        case "Psi_2_1":
+            return scalar * (10 * psi.Psi_2_1(lattice) - 2 * psi.Psi_3(lattice) - 16 * psi.Psi_1(lattice))
+        case "Psi_1_2_disc":
+            return scalar * (8 * psi.Psi_1_2_disc(lattice) - 32 * psi.Psi_1(lattice) + 4 * psi.Psi_1_2f(lattice))
+        case "Psi_1_1_1_branch":
+            return scalar * (18 * psi.Psi_1_1_1_branch(lattice) - 6 * psi.Psi_1_2_disc(lattice) - 24 * psi.Psi_1(lattice) + 6 * psi.Psi_1_1f_1(lattice))
+        case "Psi_1_1_1_chain":
+            return scalar * (16 * psi.Psi_1_1_1_chain(lattice) - 16 * psi.Psi_1(lattice) + 8 * psi.Psi_1_1f_1(lattice) - 4 * psi.Psi_2_1(lattice) -4 * psi.Psi_1_2f(lattice))
+        case "Psi_1_2f":
+            return scalar * (10 * psi.Psi_1_2f(lattice) - 12 * psi.Psi_1(lattice))
+        case "Psi_1_1f_1":
+            return scalar * (20 * psi.Psi_1_1f_1(lattice) - 20 * psi.Psi_1(lattice) - 4 * psi.Psi_1_2f(lattice) + 4 * psi.Psi_1_1f_1f(lattice))
+        case "Psi_1_1f_1f":
+            return scalar * ( 24 * psi.Psi_1_1f_1f(lattice) - 12 * psi.Psi_1(lattice))
 
 
 def updateLat(lattice, momentum, dt):
