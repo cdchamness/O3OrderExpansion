@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-SAMPLE_SIZE = 3
+SAMPLE_SIZE = 400 
 LAT_SIZE = 36
 
 def main():
@@ -29,7 +29,7 @@ def main():
     plt.ylabel("std(ΔS)")
     plt.xlabel("Beta")
     plt.title(f"{LAT_SIZE}x{LAT_SIZE} lattice")
-    #plt.savefig(f"../Plots/O3_dS_vs_Beta_test.png", dpi=500)
+    plt.savefig(f"Plots/O3_dS_vs_Beta_test.png", dpi=500)
     plt.show()
     print("\n")
 

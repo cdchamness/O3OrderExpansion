@@ -28,11 +28,13 @@ def get_deltaS(Flow_Action, dt, lat_size, beta, final_t):
     return S + lnDetJ
 
 
-SAMPLE_SIZE = 500
+SAMPLE_SIZE = 400
 BETA = 0.5
-DT = 0.25
+DT = 0.5
 FINAL_T = 1.0
 SEED = 13333337
+
+DataPath = "Data"
 
 
 Order0 = [(0.125, "Psi_1")]
@@ -44,7 +46,7 @@ Flow_Action0 = [Order0]
 Flow_Action1 = [Order0, Order1]
 Flow_Action2 = [Order0, Order1, Order2]
 
-target_lens = [8, 12, 16, 20, 24, 28, 32]#, 36 , 40, 48]
+target_lens = [8, 12, 16, 20, 24, 28, 32, 36, 40, 48]
 
 def get_many_order0(target_len):
     print(f"Starting target_len: {target_len}")
@@ -78,7 +80,14 @@ def main():
     import matplotlib.pyplot as plt
     MAX_CURRENT_PROCESSES = 15
 
+    print(f"SAMPLE_SIZE: {SAMPLE_SIZE}")
+    print(f"DeltaT     : {DT}")
+    print(f"BETA       : {BETA}")
+    print(f"SEED       : {SEED}")
+    
+    print(f"\nDoing Measurements for target lens: {target_lens}")
 
+    print("\nDoing Order 0")
     order0, len0 = [], []
     with Pool(processes=MAX_CURRENT_PROCESSES) as pool:
         for l, result in pool.imap(get_many_order0, target_lens):
@@ -86,6 +95,7 @@ def main():
             order0.append(result)
     order0 = np.array(order0)
 
+    print("\nDoing Order 1")
     order1, len1 = [], []
     with Pool(processes=MAX_CURRENT_PROCESSES) as pool:
         for l, result in pool.imap(get_many_order1, target_lens):
@@ -93,38 +103,22 @@ def main():
             order1.append(result)
     order1 = np.array(order1)
     
+    print("\nDoing Order 2")
     order2, len2 = [], []
     with Pool(processes=MAX_CURRENT_PROCESSES) as pool:
         for l, result in pool.imap(get_many_order2, target_lens):
             len2.append(l)
             order2.append(result)
     order2 = np.array(order2)
-
-    order0_err = np.empty((len(target_lens), SAMPLE_SIZE))
-    order1_err = np.empty((len(target_lens), SAMPLE_SIZE))
-    order2_err = np.empty((len(target_lens), SAMPLE_SIZE))
-    print("order0", order0)
-    print("order1", order1)
-    print("order2", order2)
-    for i in range(SAMPLE_SIZE):
-        order0_err[:, i] = np.std(np.concatenate((order0[:, :i], order0[:, i+1:]), axis=1))
-        order1_err[:, i] = np.std(np.concatenate((order1[:, :i], order1[:, i+1:]), axis=1))
-        order2_err[:, i] = np.std(np.concatenate((order2[:, :i], order2[:, i+1:]), axis=1))
-        
-        
-    plt.errorbar(len0, np.std(order0, axis=1), yerr=np.sqrt(SAMPLE_SIZE - 1) * np.std(order0_err, axis=1), c="r", fmt="o", markersize=4)
-    plt.errorbar(len1, np.std(order1, axis=1), yerr=np.sqrt(SAMPLE_SIZE - 1) * np.std(order1_err, axis=1), c="b", fmt="o", markersize=4)
-    plt.errorbar(len2, np.std(order2, axis=1), yerr=np.sqrt(SAMPLE_SIZE - 1) * np.std(order2_err, axis=1), c="g", fmt="o", markersize=4)
-
-    plt.legend(["Order0", "Order1", "Order2"])
-    plt.ylim(bottom=0.0)
-    plt.ylabel("std(ΔS)")
-    plt.xlabel("Lattice Size (Length)")
-    plt.title(f"beta={BETA}, t={FINAL_T}")
-    plt.savefig(f"Plots/O3_dS_vs_Size_2.png", dpi=500, format="png")
-    plt.show()
-    print("\n")
-
+    
+    
+    print("\nAll Measurements Finished!")
+    print("\nSaving Data...")    
+    np.save(f"{DataPath}/length_s{SAMPLE_SIZE}_b{BETA}.npy", target_lens)
+    np.save(f"{DataPath}/order0_s{SAMPLE_SIZE}_b{BETA}.npy", order0)
+    np.save(f"{DataPath}/order1_s{SAMPLE_SIZE}_b{BETA}.npy", order1)
+    np.save(f"{DataPath}/order2_s{SAMPLE_SIZE}_b{BETA}.npy", order2)
+    print(f"Data Saved at: {DataPath}/")
 
 if __name__ == "__main__":
     main()
