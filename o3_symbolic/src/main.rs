@@ -165,7 +165,7 @@ fn main() {
     let mut prev_order = vec![OrderedFloat(0.125) * Term::new(vec![InnerProduct::basic(1)])];
     println!("Order 0:");
     println!("{}", prev_order[0].clone());
-    for i in 1..=5 {
+    for i in 1..=4 {
         let next_order = get_next_order(prev_order.clone(), &mut lap_hm);
         println!("\nOrder {}:", i);
         for t in &next_order {
