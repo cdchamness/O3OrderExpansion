@@ -165,7 +165,7 @@ fn main() {
     let mut prev_order = vec![OrderedFloat(0.125) * Term::new(vec![InnerProduct::basic(1)])];
     println!("Order 0:");
     println!("{}", prev_order[0].clone());
-    for i in 1..=4 {
+    for i in 1..=5 {
         let next_order = get_next_order(prev_order.clone(), &mut lap_hm);
         println!("\nOrder {}:", i);
         for t in &next_order {
@@ -173,69 +173,4 @@ fn main() {
         }
         prev_order = next_order.clone();
     }
-
-    //println!("\n\nLaplacian HashMap");
-    //for (key, val) in lap_hm.iter() {
-    //    let mut disp_string = format!("\n-∇^2 {} =", key);
-    //    for t in val {
-    //        disp_string += format!(" {} +", t).as_str();
-    //    }
-    //    disp_string.pop();
-    //    println!("{}", disp_string);
-    //}
 }
-
-// This workflow has been implemented in get_next_order()
-// which is what main() now uses to loop to higher orders
-// by plugging in the output back as input.
-// The new function is much less verbose so I am keeping old_main()
-// incase I want to use the previous made println!()'s.
-/*
-fn old_main() {
-    let mut lap_hm = HashMap::new();
-    // 0th Order Soln. As this is easy to calculate we will start from here
-    let start_term = OrderedFloat(0.125) * Term::new(vec![InnerProduct::basic(1)]);
-    println!("0th order:\n{}", start_term);
-    let start_order = vec![start_term];
-    let next_gp = get_next_gp_from_prev_order(start_order);
-    println!("\n\nGP Result:");
-    for term in &next_gp {
-        println!("{}", term);
-    }
-    println!("\n\nLaplacian Result:");
-    let lap = get_lap_terms_from_gp(next_gp.clone(), &mut lap_hm);
-    for term in &lap {
-        println!("{}", term);
-    }
-    println!("\n\nLaplacian HashMap");
-    for (key, val) in lap_hm.iter() {
-        let mut disp_string = format!("-∇^2 {} =", key);
-        for t in val {
-            disp_string += format!(" {} +", t).as_str();
-        }
-        disp_string.pop();
-        println!("{}", disp_string);
-    }
-    let (gp_vec, lap_mat) = build_matricies(next_gp, lap.clone(), &mut lap_hm);
-    println!("\nGP vector: {}", gp_vec);
-    println!("Laplacian Matrix: {}", lap_mat);
-    let lap_inv = match lap_mat.try_inverse() {
-        Some(inv) => inv,
-        None => panic!("Could not invert Laplacian Matrix!"),
-    };
-    println!("Laplacian Inverse: {}", lap_inv);
-    let result = lap_inv * gp_vec;
-    println!("\nResult: {}", result);
-
-    let mut i = 0;
-    let mut start_order = vec![];
-    while i < result.len() {
-        start_order.push(OrderedFloat(result[i]) * lap[i].clone());
-        i += 1;
-    }
-
-    for j in &start_order {
-        println!("{}", j);
-    }
-}
-*/

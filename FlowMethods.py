@@ -152,7 +152,7 @@ def main():
 
     LatSize = 16
 
-    np.random.seed(222)
+    np.random.seed(2221133337)
     lattice = np.random.normal(0, 1., [LatSize, 3])
 
     # normalize the spins
@@ -176,7 +176,7 @@ def main():
     print("Lapp: ", Lapp)
 
     #''' # This compares results when integrate with different time steps 
-    steps = [1, 10, 100, 1000, 10_000, 100_000, 1_000_000]
+    steps = [1, 10, 100, 1000, 10_000]#, 100_000, 1_000_000]
     lats, lapps = [], []
     for step in steps:
         dt = 1.0 / step

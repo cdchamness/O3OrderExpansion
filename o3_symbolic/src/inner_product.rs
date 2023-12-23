@@ -30,7 +30,7 @@ pub struct InnerProduct {
     bra: BraKet,
     inner: Vec<Gen>,
     ket: BraKet,
-    delta: Option<KDelta>,
+    deltas: Option<Vec<KDelta>>,
 }
 
 impl InnerProduct {
@@ -39,14 +39,14 @@ impl InnerProduct {
         bra: BraKet,
         inner: Vec<Gen>,
         ket: BraKet,
-        delta: Option<KDelta>,
+        deltas: Option<Vec<KDelta>>,
     ) -> InnerProduct {
         InnerProduct {
             scalar,
             bra,
             inner,
             ket,
-            delta,
+            deltas,
         }
     }
 
@@ -58,7 +58,7 @@ impl InnerProduct {
             bra: BraKet::new('l', 'y', vec![0; len]),
             inner: vec![],
             ket: BraKet::new('l', 'y', k_vec),
-            delta: None,
+            deltas: None,
         }
     }
 
@@ -78,8 +78,8 @@ impl InnerProduct {
         self.ket.clone()
     }
 
-    pub fn get_delta(&self) -> Option<KDelta> {
-        self.delta.clone()
+    pub fn get_deltas(&self) -> Option<Vec<KDelta>> {
+        self.deltas.clone()
     }
 
     pub fn get_index_type(&self) -> char {
@@ -133,28 +133,36 @@ impl InnerProduct {
     pub fn partial(&self, partial_index_type: char, alpha_type: char) -> Vec<InnerProduct> {
         let mut out = Vec::new();
         if let Some(bra_kdelta) = self.bra.partial(partial_index_type) {
+            // Convert Single bra_kdelta into Vec<Vec<KDelta>> doing expansion if necessary
+            let full_kdelta = bra_kdelta.expand_delta();
             let mut inside = self.inner.clone();
             inside.push(Gen { alpha_type });
-            let new_ip = InnerProduct::new(
-                OrderedFloat(-1.0) * self.scalar,
-                self.bra.clone(),
-                inside,
-                self.ket.clone(),
-                Some(bra_kdelta),
-            );
-            out.push(new_ip);
+            for kdelta_pairing in full_kdelta {
+                let new_ip = InnerProduct::new(
+                    OrderedFloat(-1.0) * self.scalar,
+                    self.bra.clone(),
+                    inside.clone(),
+                    self.ket.clone(),
+                    Some(kdelta_pairing),
+                );
+                out.push(new_ip);
+            }
         }
         if let Some(ket_kdelta) = self.ket.partial(partial_index_type) {
+            // Convert Single ket_kdelta into Vec<KDelta> doing expansion if necessary
+            let full_kdelta = ket_kdelta.expand_delta();
             let mut inside = self.inner.clone();
             inside.push(Gen { alpha_type });
-            let new_ip = InnerProduct::new(
-                self.scalar,
-                self.bra.clone(),
-                inside,
-                self.ket.clone(),
-                Some(ket_kdelta),
-            );
-            out.push(new_ip);
+            for kdelta_pairing in full_kdelta {
+                let new_ip = InnerProduct::new(
+                    self.scalar,
+                    self.bra.clone(),
+                    inside.clone(),
+                    self.ket.clone(),
+                    Some(kdelta_pairing),
+                );
+                out.push(new_ip);
+            }
         }
         out
     }
@@ -162,8 +170,15 @@ impl InnerProduct {
     pub fn collapse_delta(&mut self, delta: &KDelta) {
         self.bra.collapse_delta(delta);
         self.ket.collapse_delta(delta);
-        if Some(delta) == self.delta.as_ref() {
-            self.delta = None
+        if let Some(deltas) = &mut self.deltas {
+            deltas.retain(|d| d != delta); // removes delta that you just collapsed
+                                           // but you also need to collapse the same index for the other deltas in that term
+            for d in deltas.iter_mut() {
+                d.collapse_delta(delta);
+            }
+            if deltas.is_empty() {
+                self.deltas = None;
+            }
         }
     }
 
@@ -178,28 +193,28 @@ impl InnerProduct {
             ip1.get_bra(),
             ip1.get_inner(),
             ip2.get_bra(),
-            ip1.get_delta(),
+            ip1.get_deltas(),
         );
         let new_ip2 = InnerProduct::new(
             ip2.get_scalar(),
             ip1.get_ket(),
             ip2.get_inner(),
             ip2.get_ket(),
-            ip2.get_delta(),
+            ip2.get_deltas(),
         );
         let new_ip3 = InnerProduct::new(
             OrderedFloat(-1.0) * ip1.get_scalar(),
             ip1.get_bra(),
             ip1.get_inner(),
             ip2.get_ket(),
-            ip1.get_delta(),
+            ip1.get_deltas(),
         );
         let new_ip4 = InnerProduct::new(
             ip2.get_scalar(),
             ip1.get_ket(),
             ip2.get_inner(),
             ip2.get_bra(),
-            ip2.get_delta(),
+            ip2.get_deltas(),
         );
 
         let t1 = Term::new(vec![new_ip1, new_ip2]);
@@ -209,7 +224,7 @@ impl InnerProduct {
     }
 
     pub fn is_constant(&self) -> bool {
-        self.bra == self.ket && self.delta == None && self.inner.is_empty() // && self.scalar == 1.0
+        self.bra == self.ket && self.deltas == None && self.inner.is_empty() // && self.scalar == 1.0
     }
 
     fn switch_order(&mut self) {
@@ -294,8 +309,10 @@ impl fmt::Display for InnerProduct {
         }
         my_str += &self.ket.get_string();
         my_str += ">";
-        if let Some(delt) = &self.delta {
-            my_str += &delt.to_string();
+        if let Some(deltas) = &self.deltas {
+            for delta in deltas {
+                my_str += &delta.to_string();
+            }
         }
         write!(f, "{}", my_str)
     }
@@ -415,10 +432,5 @@ mod tests {
                 )
             ])
         );
-    }
-
-    #[test]
-    fn partial_test() {
-        assert_eq!(1, 1);
     }
 }

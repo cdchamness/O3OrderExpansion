@@ -110,12 +110,6 @@ def updateLat(lattice, momentum, dt):
 
 
 def gen_random_lattice(size, seed=None, verbose=False):
-    if seed is None:
-        seed = random.randint(0, 1_000_000)  # this uses a different rng than numpy
-    if verbose:
-        print(f"Using seed: {seed}")
-    np.random.seed(seed)
-
     lattice = np.random.normal(0, 1, (size, size, 3))
     norm = np.sqrt(np.einsum("imj,imj->im", lattice, lattice))
     lattice /= norm[:, :, None]
@@ -138,7 +132,7 @@ def main():
     dt = 1.0 / steps
     times = np.arange(0.0, 1.0, dt)
 
-    lattice = gen_random_lattice(LatSize, seed=1111)
+    lattice = gen_random_lattice(LatSize)
     lap_total = 0.0
     pb1 = pb.ProgressBar(len(times), prefix=f"Doing Flow {steps}")
     for i, t in enumerate(times):
@@ -198,42 +192,15 @@ def main():
     print(np.einsum("imj,imj->im", lattice, lattice))
     print(lap_total)
 
-    steps = 10_000
-    dt = 1.0 / steps
-    times = np.arange(0.0, 1.0, dt)
-
-    lattice = gen_random_lattice(LatSize, seed=1111)
-    lap_total = 0.0
-    pb1 = pb.ProgressBar(len(times), prefix=f"Doing Flow {steps}")
-    for i, t in enumerate(times):
-        lattice, lap_next = RK4(Flow_Action, lattice, t, dt, beta)
-        lap_total += dt * lap_next
-        pb1.print(i)
-    print(lattice)
-    results.append(lattice)
-    print(np.einsum("imj,imj->im", lattice, lattice))
-    print(lap_total)
-
-    steps = 100_000
-    dt = 1.0 / steps
-    times = np.arange(0.0, 1.0, dt)
-
-    lattice = gen_random_lattice(LatSize, seed=1111)
-    lap_total = 0.0
-    pb1 = pb.ProgressBar(len(times), prefix=f"Doing Flow {steps}")
-    for i, t in enumerate(times):
-        lattice, lap_next = RK4(Flow_Action, lattice, t, dt, beta)
-        lap_total += dt * lap_next
-        pb1.print(i)
-    print(lattice)
-    results.append(lattice)
-    print(np.einsum("imj,imj->im", lattice, lattice))
-    print(lap_total)
-
-    ts = [1, 10, 100, 1_000, 10_000, 100_000]
+    ts = [1, 10, 100, 1_000]
     for result, t in zip(results, ts):
         print(t, result - results[-1])
 
 
 if __name__ == "__main__":
+    import cProfile
+    profiler = cProfile.Profile()
+    profiler.enable()
     main()
+    profiler.disable()
+    profiler.dump_stats("flow_test.prof")
