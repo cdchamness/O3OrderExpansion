@@ -53,7 +53,8 @@ impl BraKet {
     pub fn partial(&self, partial_index_type: char) -> Option<KDelta> {
         if partial_index_type == self.index_type {
             let sum = self.shift.iter().fold(0, |acc, x| acc + x.abs());
-            if sum % 2 != 0 {
+            let max = self.shift.iter().max_by_key(|x| x.abs()).unwrap();
+            if sum % 2 != 0 || max.abs() > sum / 2 {
                 return None;
             }
         }
