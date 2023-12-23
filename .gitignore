@@ -1,3 +1,5 @@
 *.pyc
 o3_symbolic/target
-result.txt
+runs/Data
+runs/Plots
+results.txt
