@@ -112,10 +112,9 @@ def GetClosedLaplacian(TermList):
     ValDict = {str(T.Val):i for i, T in enumerate(closedList)} # Populates current values into Dict
     GPArray = [T.getScalar() for T in closedList]
     LapLists = []
-    
-    
-    # Loops threw closedList, applies Laplacian, 
-    #       if term not already in closedList then it is added 
+
+    # Loops through closedList, applies Laplacian,
+    #       if term not already in closedList then it is added
     #       A 0 is also added to GPArray so that it is compatable length
     # Saves result from each Laplacian in LapRes which get added to LapLists
     # Filters out constant value results ( <x+|x+> => Val = [1.0] = const Val)
